@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
+    "test:unit": "vitest --run --exclude='**/*.integration.test.ts'",
+    "test:integration": "vitest --run --testNamePattern='Integration'",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage"
   },
