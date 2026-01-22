@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": ["Bash(npm view:*)"]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FILE_PATH=$(cat | jq -r '.tool_input.file_path') && [[ \"$FILE_PATH\" =~ \\.(ts|tsx|js|jsx|json|md)$ ]] && pnpm prettier --write \"$FILE_PATH\" && pnpm eslint --fix \"$FILE_PATH\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}

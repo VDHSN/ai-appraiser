@@ -14,7 +14,8 @@
     "test:coverage": "vitest --coverage",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepare": "husky"
+    "link:skills": "rm -rf .claude/skills && ln -s ../.agents/skills .claude/skills",
+    "prepare": "husky && pnpm run link:skills"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.10",
