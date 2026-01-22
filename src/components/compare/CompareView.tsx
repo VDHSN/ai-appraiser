@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useCompareStore, type CompareItem } from "@/stores/compare-store";
 import { Price, PriceRange } from "@/components/ui/Price";
 import { Button } from "@/components/ui/Button";
+import { getProxiedImageUrl } from "@/lib/image-proxy";
 
 function getItemId(item: CompareItem): string {
   return "id" in item ? item.id : item.itemId;
@@ -83,12 +83,11 @@ export function CompareView() {
               >
                 <div className="relative mb-3 aspect-square overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800">
                   {img ? (
-                    <Image
-                      src={img}
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={getProxiedImageUrl(img)}
                       alt={getItemTitle(item)}
-                      fill
-                      className="object-contain"
-                      sizes="25vw"
+                      className="h-full w-full object-contain"
                     />
                   ) : (
                     <div className="h-full w-full" />

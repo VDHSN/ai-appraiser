@@ -1,10 +1,11 @@
 "use client";
 
-import Image from "next/image";
+import { useState } from "react";
 import type { SearchResult } from "@/lib/adapters/types";
 import { Badge } from "@/components/ui/Badge";
 import { Price } from "@/components/ui/Price";
 import { CompareToggle } from "@/components/compare/CompareToggle";
+import { getProxiedImageUrl } from "@/lib/image-proxy";
 
 interface ItemCardProps {
   item: SearchResult;
@@ -28,6 +29,7 @@ function formatTimeRemaining(endTime?: Date): string | null {
 }
 
 export function ItemCard({ item, onSelect }: ItemCardProps) {
+  const [imgError, setImgError] = useState(false);
   const timeRemaining = formatTimeRemaining(item.endTime);
 
   return (
@@ -40,13 +42,32 @@ export function ItemCard({ item, onSelect }: ItemCardProps) {
       </div>
 
       <div className="relative aspect-[4/3] overflow-hidden rounded-t-lg bg-zinc-100 dark:bg-zinc-800">
-        <Image
-          src={item.thumbnailUrl || item.imageUrl}
-          alt={item.title}
-          fill
-          className="object-cover transition-transform group-hover:scale-105"
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-        />
+        {imgError ? (
+          <div className="flex h-full w-full items-center justify-center text-zinc-400">
+            <svg
+              className="h-12 w-12"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+          </div>
+        ) : (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={getProxiedImageUrl(item.thumbnailUrl || item.imageUrl)}
+            alt={item.title}
+            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+            onError={() => setImgError(true)}
+            loading="lazy"
+          />
+        )}
         {item.status && item.status !== "live" && (
           <Badge
             variant={item.status === "sold" ? "success" : "default"}

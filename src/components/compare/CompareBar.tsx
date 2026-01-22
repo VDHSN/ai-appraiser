@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { useCompareStore, type CompareItem } from "@/stores/compare-store";
 import { Button } from "@/components/ui/Button";
+import { getProxiedImageUrl } from "@/lib/image-proxy";
 
 function getItemId(item: CompareItem): string {
   return "id" in item ? item.id : item.itemId;
@@ -41,16 +41,15 @@ export function CompareBar() {
                 <button
                   key={getItemId(item)}
                   onClick={() => removeItem(getItemId(item))}
-                  className="relative h-10 w-10 overflow-hidden rounded-full border-2 border-white ring-1 ring-zinc-200 transition-transform hover:scale-110 hover:z-10 dark:border-zinc-900 dark:ring-zinc-700"
+                  className="relative h-10 w-10 overflow-hidden rounded-full border-2 border-white ring-1 ring-zinc-200 transition-transform hover:z-10 hover:scale-110 dark:border-zinc-900 dark:ring-zinc-700"
                   title="Remove from compare"
                 >
                   {img ? (
-                    <Image
-                      src={img}
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={getProxiedImageUrl(img)}
                       alt="Compare item"
-                      fill
-                      className="object-cover"
-                      sizes="40px"
+                      className="h-full w-full object-cover"
                     />
                   ) : (
                     <div className="h-full w-full bg-zinc-200 dark:bg-zinc-700" />
