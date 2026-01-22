@@ -1,6 +1,7 @@
 "use client";
 
 import type { UIMessage } from "ai";
+import { Streamdown } from "streamdown";
 import { ToolInvocation } from "./ToolInvocation";
 
 interface ChatMessageProps {
@@ -32,15 +33,23 @@ export function ChatMessage({ message }: ChatMessageProps) {
       >
         {message.parts.map((part, i) => {
           if (part.type === "text") {
+            if (isUser) {
+              return (
+                <p
+                  key={i}
+                  className="whitespace-pre-wrap text-sm leading-relaxed"
+                >
+                  {part.text}
+                </p>
+              );
+            }
             return (
-              <p
+              <Streamdown
                 key={i}
-                className={`whitespace-pre-wrap text-sm leading-relaxed ${
-                  isUser ? "" : "text-zinc-800 dark:text-zinc-200"
-                }`}
+                className="text-sm text-zinc-800 dark:text-zinc-200"
               >
                 {part.text}
-              </p>
+              </Streamdown>
             );
           }
 

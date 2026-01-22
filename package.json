@@ -28,6 +28,7 @@
     "react": "19.2.1",
     "react-dom": "19.2.1",
     "react-hook-form": "^7.71.1",
+    "streamdown": "^1.6.10",
     "zod": "^4.3.5",
     "zustand": "^5.0.10"
   },
