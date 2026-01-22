@@ -128,6 +128,13 @@ interface LAItemDetail {
   status?: string;
 }
 
+/** Response from spa/small/item-detail API */
+interface LAItemDetailResponse {
+  data: {
+    itemDetails: LAItemDetail[];
+  };
+}
+
 interface LAItemFacets {
   categories?: Array<{ id: string; name: string }>;
   materials?: string[];
@@ -416,7 +423,19 @@ async function fetchJson<T>(
   return response.json();
 }
 
-function extractItemData<T>(data: Record<string, T> | T, itemId: string): T {
+function extractItemData<T>(
+  data: Record<string, T> | T | { data: { itemDetails: T[] } },
+  itemId: string,
+): T {
+  // New format: { data: { itemDetails: [...] } }
+  if (data && typeof data === "object" && "data" in data) {
+    const wrapped = data as { data: { itemDetails: T[] } };
+    const item = wrapped.data?.itemDetails?.find(
+      (i) => String((i as { itemId?: number }).itemId) === itemId,
+    );
+    if (item) return item;
+  }
+  // Legacy format: { "itemId": {...} }
   if (data && typeof data === "object" && itemId in data) {
     return (data as Record<string, T>)[itemId];
   }

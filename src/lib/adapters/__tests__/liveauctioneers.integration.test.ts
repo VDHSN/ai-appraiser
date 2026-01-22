@@ -233,6 +233,20 @@ describe.skipIf(SKIP_INTEGRATION)("LiveAuctioneers Integration", () => {
       },
       INTEGRATION_TIMEOUT,
     );
+
+    it(
+      "returns description from item-detail API",
+      async () => {
+        // Regression test: item 223183805 has a known description
+        // This catches API response structure changes
+        const item = await adapter.getItem("223183805");
+
+        expect(item.description).toBeDefined();
+        expect(item.description.length).toBeGreaterThan(0);
+        expect(item.description).toContain("Wilkinson");
+      },
+      INTEGRATION_TIMEOUT,
+    );
   });
 
   describe("field completeness", () => {
