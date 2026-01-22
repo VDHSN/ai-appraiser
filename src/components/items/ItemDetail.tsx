@@ -29,7 +29,7 @@ export function ItemDetail({ item }: ItemDetailProps) {
             {item.lotNumber && <Badge>Lot {item.lotNumber}</Badge>}
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-3">
             <Price
               amount={item.currentPrice}
               currency={item.currency}
@@ -49,14 +49,16 @@ export function ItemDetail({ item }: ItemDetailProps) {
             )}
           </div>
 
-          <div className="border-t border-zinc-200 pt-4 dark:border-zinc-700">
-            <h3 className="mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Description
-            </h3>
-            <p className="whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-400">
-              {item.description}
-            </p>
-          </div>
+          {item.description && (
+            <div className="border-t border-zinc-200 pt-4 dark:border-zinc-700">
+              <h3 className="mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Description
+              </h3>
+              <p className="whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-400">
+                {item.description}
+              </p>
+            </div>
+          )}
 
           {item.condition && (
             <div>

@@ -1,6 +1,6 @@
 {
   "permissions": {
-    "allow": ["Bash(npm view:*)"]
+    "allow": ["Bash(npm view:*)", "WebFetch(domain:www.liveauctioneers.com)"]
   },
   "hooks": {
     "PostToolUse": [
