@@ -6,26 +6,26 @@
  * Skip in CI by setting: SKIP_INTEGRATION_TESTS=true
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
-import { LiveAuctioneersAdapter } from '../liveauctioneers';
-import type { SearchResult, UnifiedItem } from '../types';
+import { describe, it, expect, beforeAll } from "vitest";
+import { LiveAuctioneersAdapter } from "../liveauctioneers";
+import type { SearchResult, UnifiedItem } from "../types";
 
-const SKIP_INTEGRATION = process.env.SKIP_INTEGRATION_TESTS === 'true';
+const SKIP_INTEGRATION = process.env.SKIP_INTEGRATION_TESTS === "true";
 
 // Use a common search term likely to have results
-const TEST_SEARCH_TERM = 'antique lamp';
+const TEST_SEARCH_TERM = "antique lamp";
 const INTEGRATION_TIMEOUT = 30000;
 
-describe.skipIf(SKIP_INTEGRATION)('LiveAuctioneers Integration', () => {
+describe.skipIf(SKIP_INTEGRATION)("LiveAuctioneers Integration", () => {
   let adapter: LiveAuctioneersAdapter;
 
   beforeAll(() => {
     adapter = new LiveAuctioneersAdapter();
   });
 
-  describe('search', () => {
+  describe("search", () => {
     it(
-      'returns results with all required fields populated',
+      "returns results with all required fields populated",
       async () => {
         const results = await adapter.search({ keywords: TEST_SEARCH_TERM });
 
@@ -40,11 +40,11 @@ describe.skipIf(SKIP_INTEGRATION)('LiveAuctioneers Integration', () => {
           assertSearchResultFields(results[1]);
         }
       },
-      INTEGRATION_TIMEOUT
+      INTEGRATION_TIMEOUT,
     );
 
     it(
-      'respects pagination parameters',
+      "respects pagination parameters",
       async () => {
         const page1 = await adapter.search({
           keywords: TEST_SEARCH_TERM,
@@ -66,11 +66,11 @@ describe.skipIf(SKIP_INTEGRATION)('LiveAuctioneers Integration', () => {
           expect(page1[0].itemId).not.toBe(page2[0].itemId);
         }
       },
-      INTEGRATION_TIMEOUT
+      INTEGRATION_TIMEOUT,
     );
 
     it(
-      'filters by price range',
+      "filters by price range",
       async () => {
         const results = await adapter.search({
           keywords: TEST_SEARCH_TERM,
@@ -81,26 +81,26 @@ describe.skipIf(SKIP_INTEGRATION)('LiveAuctioneers Integration', () => {
         // Note: currentPrice might be starting bid, not always in exact range
         expect(Array.isArray(results)).toBe(true);
       },
-      INTEGRATION_TIMEOUT
+      INTEGRATION_TIMEOUT,
     );
 
     it(
-      'handles empty results gracefully',
+      "handles empty results gracefully",
       async () => {
         const results = await adapter.search({
-          keywords: 'xyznonexistentitem12345xyz',
+          keywords: "xyznonexistentitem12345xyz",
         });
 
         expect(Array.isArray(results)).toBe(true);
         expect(results.length).toBe(0);
       },
-      INTEGRATION_TIMEOUT
+      INTEGRATION_TIMEOUT,
     );
   });
 
-  describe('getPriceHistory', () => {
+  describe("getPriceHistory", () => {
     it(
-      'returns sold items with price data',
+      "returns sold items with price data",
       async () => {
         const results = await adapter.getPriceHistory({
           keywords: TEST_SEARCH_TERM,
@@ -115,18 +115,20 @@ describe.skipIf(SKIP_INTEGRATION)('LiveAuctioneers Integration', () => {
         expect(item.status).toMatch(/^(sold|passed|done)$/);
 
         // At least some items should have hammer prices
-        const withHammerPrice = results.filter((r) => r.soldPrice !== undefined);
+        const withHammerPrice = results.filter(
+          (r) => r.soldPrice !== undefined,
+        );
         expect(withHammerPrice.length).toBeGreaterThan(0);
 
         const soldItem = withHammerPrice[0];
-        expect(typeof soldItem.soldPrice).toBe('number');
+        expect(typeof soldItem.soldPrice).toBe("number");
         expect(soldItem.soldPrice).toBeGreaterThanOrEqual(0);
       },
-      INTEGRATION_TIMEOUT
+      INTEGRATION_TIMEOUT,
     );
 
     it(
-      'returns sold dates for completed auctions',
+      "returns sold dates for completed auctions",
       async () => {
         const results = await adapter.getPriceHistory({
           keywords: TEST_SEARCH_TERM,
@@ -141,11 +143,11 @@ describe.skipIf(SKIP_INTEGRATION)('LiveAuctioneers Integration', () => {
           expect(item.soldDate!.getTime()).toBeLessThan(Date.now());
         }
       },
-      INTEGRATION_TIMEOUT
+      INTEGRATION_TIMEOUT,
     );
   });
 
-  describe('getItem', () => {
+  describe("getItem", () => {
     let testItemId: string;
 
     beforeAll(async () => {
@@ -160,32 +162,32 @@ describe.skipIf(SKIP_INTEGRATION)('LiveAuctioneers Integration', () => {
     }, INTEGRATION_TIMEOUT);
 
     it(
-      'returns full item details with all fields',
+      "returns full item details with all fields",
       async () => {
         expect(testItemId).toBeDefined();
 
         const item = await adapter.getItem(testItemId);
         assertUnifiedItemFields(item, testItemId);
       },
-      INTEGRATION_TIMEOUT
+      INTEGRATION_TIMEOUT,
     );
 
     it(
-      'includes seller information',
+      "includes seller information",
       async () => {
         expect(testItemId).toBeDefined();
 
         const item = await adapter.getItem(testItemId);
 
         expect(item.seller).toBeDefined();
-        expect(typeof item.seller.name).toBe('string');
+        expect(typeof item.seller.name).toBe("string");
         expect(item.seller.name.length).toBeGreaterThan(0);
       },
-      INTEGRATION_TIMEOUT
+      INTEGRATION_TIMEOUT,
     );
 
     it(
-      'includes images array',
+      "includes images array",
       async () => {
         expect(testItemId).toBeDefined();
 
@@ -197,11 +199,11 @@ describe.skipIf(SKIP_INTEGRATION)('LiveAuctioneers Integration', () => {
           expect(item.images[0]).toMatch(/^https?:\/\//);
         }
       },
-      INTEGRATION_TIMEOUT
+      INTEGRATION_TIMEOUT,
     );
 
     it(
-      'includes category information from facets',
+      "includes category information from facets",
       async () => {
         expect(testItemId).toBeDefined();
 
@@ -211,11 +213,11 @@ describe.skipIf(SKIP_INTEGRATION)('LiveAuctioneers Integration', () => {
         expect(item.facets).toBeDefined();
         expect(Array.isArray(item.facets?.categories)).toBe(true);
       },
-      INTEGRATION_TIMEOUT
+      INTEGRATION_TIMEOUT,
     );
 
     it(
-      'may include similar items',
+      "may include similar items",
       async () => {
         expect(testItemId).toBeDefined();
 
@@ -229,13 +231,13 @@ describe.skipIf(SKIP_INTEGRATION)('LiveAuctioneers Integration', () => {
           }
         }
       },
-      INTEGRATION_TIMEOUT
+      INTEGRATION_TIMEOUT,
     );
   });
 
-  describe('field completeness', () => {
+  describe("field completeness", () => {
     it(
-      'search results have consistent field types',
+      "search results have consistent field types",
       async () => {
         const results = await adapter.search({
           keywords: TEST_SEARCH_TERM,
@@ -244,35 +246,35 @@ describe.skipIf(SKIP_INTEGRATION)('LiveAuctioneers Integration', () => {
 
         for (const result of results) {
           // Required fields - must be correct type
-          expect(typeof result.platform).toBe('string');
-          expect(typeof result.itemId).toBe('string');
-          expect(typeof result.title).toBe('string');
-          expect(typeof result.currentPrice).toBe('number');
-          expect(typeof result.currency).toBe('string');
-          expect(typeof result.imageUrl).toBe('string');
-          expect(typeof result.url).toBe('string');
+          expect(typeof result.platform).toBe("string");
+          expect(typeof result.itemId).toBe("string");
+          expect(typeof result.title).toBe("string");
+          expect(typeof result.currentPrice).toBe("number");
+          expect(typeof result.currency).toBe("string");
+          expect(typeof result.imageUrl).toBe("string");
+          expect(typeof result.url).toBe("string");
 
           // URL should be valid LiveAuctioneers URL
-          expect(result.url).toContain('liveauctioneers.com/item/');
-          expect(result.platform).toBe('liveauctioneers');
+          expect(result.url).toContain("liveauctioneers.com/item/");
+          expect(result.platform).toBe("liveauctioneers");
 
           // Optional fields - correct type if present
           if (result.endTime !== undefined) {
             expect(result.endTime).toBeInstanceOf(Date);
           }
           if (result.bidCount !== undefined) {
-            expect(typeof result.bidCount).toBe('number');
+            expect(typeof result.bidCount).toBe("number");
           }
           if (result.auctionHouse !== undefined) {
-            expect(typeof result.auctionHouse).toBe('string');
+            expect(typeof result.auctionHouse).toBe("string");
           }
         }
       },
-      INTEGRATION_TIMEOUT
+      INTEGRATION_TIMEOUT,
     );
 
     it(
-      'item details have consistent field types',
+      "item details have consistent field types",
       async () => {
         const searchResults = await adapter.search({
           keywords: TEST_SEARCH_TERM,
@@ -284,26 +286,26 @@ describe.skipIf(SKIP_INTEGRATION)('LiveAuctioneers Integration', () => {
           const item = await adapter.getItem(searchResult.itemId);
 
           // Required fields
-          expect(typeof item.id).toBe('string');
-          expect(typeof item.platformItemId).toBe('string');
-          expect(typeof item.platform).toBe('string');
-          expect(typeof item.url).toBe('string');
-          expect(typeof item.title).toBe('string');
-          expect(typeof item.description).toBe('string');
+          expect(typeof item.id).toBe("string");
+          expect(typeof item.platformItemId).toBe("string");
+          expect(typeof item.platform).toBe("string");
+          expect(typeof item.url).toBe("string");
+          expect(typeof item.title).toBe("string");
+          expect(typeof item.description).toBe("string");
           expect(Array.isArray(item.images)).toBe(true);
           expect(Array.isArray(item.category)).toBe(true);
-          expect(typeof item.currentPrice).toBe('number');
-          expect(typeof item.currency).toBe('string');
-          expect(['timed', 'live', 'buy-now']).toContain(item.auctionType);
+          expect(typeof item.currentPrice).toBe("number");
+          expect(typeof item.currency).toBe("string");
+          expect(["timed", "live", "buy-now"]).toContain(item.auctionType);
 
           // Seller is required
           expect(item.seller).toBeDefined();
-          expect(typeof item.seller.name).toBe('string');
+          expect(typeof item.seller.name).toBe("string");
 
           // Optional fields - correct type if present
           if (item.estimateRange !== undefined) {
-            expect(typeof item.estimateRange.low).toBe('number');
-            expect(typeof item.estimateRange.high).toBe('number');
+            expect(typeof item.estimateRange.low).toBe("number");
+            expect(typeof item.estimateRange.high).toBe("number");
           }
           if (item.startTime !== undefined) {
             expect(item.startTime).toBeInstanceOf(Date);
@@ -312,11 +314,11 @@ describe.skipIf(SKIP_INTEGRATION)('LiveAuctioneers Integration', () => {
             expect(item.endTime).toBeInstanceOf(Date);
           }
           if (item.bidCount !== undefined) {
-            expect(typeof item.bidCount).toBe('number');
+            expect(typeof item.bidCount).toBe("number");
           }
         }
       },
-      INTEGRATION_TIMEOUT * 2
+      INTEGRATION_TIMEOUT * 2,
     );
   });
 });
@@ -325,27 +327,27 @@ describe.skipIf(SKIP_INTEGRATION)('LiveAuctioneers Integration', () => {
 
 function assertSearchResultFields(item: SearchResult): void {
   // Required fields must exist and have correct types
-  expect(item.platform).toBe('liveauctioneers');
-  expect(typeof item.itemId).toBe('string');
+  expect(item.platform).toBe("liveauctioneers");
+  expect(typeof item.itemId).toBe("string");
   expect(item.itemId.length).toBeGreaterThan(0);
 
-  expect(typeof item.title).toBe('string');
+  expect(typeof item.title).toBe("string");
   // Title can be empty but should be a string
 
-  expect(typeof item.currentPrice).toBe('number');
+  expect(typeof item.currentPrice).toBe("number");
   expect(item.currentPrice).toBeGreaterThanOrEqual(0);
 
-  expect(typeof item.currency).toBe('string');
+  expect(typeof item.currency).toBe("string");
   expect(item.currency.length).toBeGreaterThan(0);
 
-  expect(typeof item.imageUrl).toBe('string');
+  expect(typeof item.imageUrl).toBe("string");
   // Image URL should be a valid URL if not empty
   if (item.imageUrl.length > 0) {
     expect(item.imageUrl).toMatch(/^https?:\/\//);
   }
 
-  expect(typeof item.url).toBe('string');
-  expect(item.url).toContain('liveauctioneers.com/item/');
+  expect(typeof item.url).toBe("string");
+  expect(item.url).toContain("liveauctioneers.com/item/");
   expect(item.url).toContain(item.itemId);
 }
 
@@ -353,26 +355,26 @@ function assertUnifiedItemFields(item: UnifiedItem, expectedId: string): void {
   // Identity fields
   expect(item.id).toBe(`la-${expectedId}`);
   expect(item.platformItemId).toBe(expectedId);
-  expect(item.platform).toBe('liveauctioneers');
+  expect(item.platform).toBe("liveauctioneers");
   expect(item.url).toContain(expectedId);
 
   // Core details
-  expect(typeof item.title).toBe('string');
-  expect(typeof item.description).toBe('string');
+  expect(typeof item.title).toBe("string");
+  expect(typeof item.description).toBe("string");
   expect(Array.isArray(item.images)).toBe(true);
   expect(Array.isArray(item.category)).toBe(true);
 
   // Pricing
-  expect(typeof item.currentPrice).toBe('number');
+  expect(typeof item.currentPrice).toBe("number");
   expect(item.currentPrice).toBeGreaterThanOrEqual(0);
-  expect(typeof item.currency).toBe('string');
+  expect(typeof item.currency).toBe("string");
 
   // Auction type
-  expect(['timed', 'live', 'buy-now']).toContain(item.auctionType);
+  expect(["timed", "live", "buy-now"]).toContain(item.auctionType);
 
   // Seller
   expect(item.seller).toBeDefined();
-  expect(typeof item.seller.name).toBe('string');
+  expect(typeof item.seller.name).toBe("string");
   expect(item.seller.name.length).toBeGreaterThan(0);
 
   // Facets

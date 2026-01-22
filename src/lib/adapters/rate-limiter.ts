@@ -88,9 +88,7 @@ function sleep(ms: number): Promise<void> {
 /**
  * Wrap a fetch function with rate limiting.
  */
-export function createRateLimitedFetch(
-  limiter: RateLimiter
-): typeof fetch {
+export function createRateLimitedFetch(limiter: RateLimiter): typeof fetch {
   return async (input: RequestInfo | URL, init?: RequestInit) => {
     await limiter.acquire();
     return fetch(input, init);

@@ -8,26 +8,29 @@ import {
   SearchQuery,
   SearchResult,
   UnifiedItem,
-} from './types';
+} from "./types";
 
 // API endpoints
-const SEARCH_URL = 'https://search-party-prod.liveauctioneers.com/search/v4/web';
-const ITEM_DETAIL_URL = 'https://item-api-prod.liveauctioneers.com/spa/small/item-detail';
-const ITEM_FACETS_URL = 'https://item-api-prod.liveauctioneers.com/spa/small/item-facets';
-const CONTENT_ITEMS_URL = 'https://www.liveauctioneers.com/content/items';
+const SEARCH_URL =
+  "https://search-party-prod.liveauctioneers.com/search/v4/web";
+const ITEM_DETAIL_URL =
+  "https://item-api-prod.liveauctioneers.com/spa/small/item-detail";
+const ITEM_FACETS_URL =
+  "https://item-api-prod.liveauctioneers.com/spa/small/item-facets";
+const CONTENT_ITEMS_URL = "https://www.liveauctioneers.com/content/items";
 
 const REQUIRED_HEADERS: HeadersInit = {
-  Origin: 'https://www.liveauctioneers.com',
-  Referer: 'https://www.liveauctioneers.com/',
-  'User-Agent':
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36',
-  Accept: '*/*',
+  Origin: "https://www.liveauctioneers.com",
+  Referer: "https://www.liveauctioneers.com/",
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+  Accept: "*/*",
 };
 
 /** Cache key used by LiveAuctioneers API - appears to be a static version identifier */
-const CACHE_KEY = '20170802';
+const CACHE_KEY = "20170802";
 
-const PLATFORM = 'liveauctioneers' as const;
+const PLATFORM = "liveauctioneers" as const;
 
 // --- API Response Types (match external API shape) ---
 
@@ -137,15 +140,15 @@ interface LAContentItem {
 // --- Pure Functions for Mapping ---
 
 const SORT_MAP: Record<string, string> = {
-  relevance: '-relevance',
-  'price-asc': 'price',
-  'price-desc': '-price',
-  'ending-soon': 'saleEnd',
+  relevance: "-relevance",
+  "price-asc": "price",
+  "price-desc": "-price",
+  "ending-soon": "saleEnd",
 };
 
 function buildSearchParams(
   query: SearchQuery,
-  status: string[]
+  status: string[],
 ): LASearchParameters {
   return {
     searchTerm: query.keywords,
@@ -160,13 +163,13 @@ function buildSearchParams(
       ? { price: { min: query.priceRange.min, max: query.priceRange.max } }
       : {},
     buyNow: false,
-    sort: SORT_MAP[query.sort ?? 'relevance'],
+    sort: SORT_MAP[query.sort ?? "relevance"],
     distance: {},
-    citySlug: query.location ?? '',
-    region: '',
+    citySlug: query.location ?? "",
+    region: "",
     saleDate: {},
     publishDate: {},
-    analyticsTags: ['web'],
+    analyticsTags: ["web"],
     seoSearch: false,
   };
 }
@@ -192,34 +195,39 @@ function buildItemUrl(itemId: string | number): string {
   return `https://www.liveauctioneers.com/item/${itemId}`;
 }
 
-function buildImageUrl(itemId: number, photoIndex: number, imageVersion?: number): string {
+function buildImageUrl(
+  itemId: number,
+  photoIndex: number,
+  imageVersion?: number,
+): string {
   const version = imageVersion ?? Date.now();
   return `https://p1.liveauctioneers.com/6/${itemId}/${photoIndex}_1_x.jpg?version=${version}`;
 }
 
-function mapSearchStatus(item: LASearchItem): SearchResult['status'] {
-  if (item.isSold) return 'sold';
-  if (item.isPassed) return 'passed';
-  if (item.catalogStatus === 'live') return 'live';
-  if (item.catalogStatus === 'online') return 'online';
-  if (item.catalogStatus === 'upcoming') return 'upcoming';
-  return 'online';
+function mapSearchStatus(item: LASearchItem): SearchResult["status"] {
+  if (item.isSold) return "sold";
+  if (item.isPassed) return "passed";
+  if (item.catalogStatus === "live") return "live";
+  if (item.catalogStatus === "online") return "online";
+  if (item.catalogStatus === "upcoming") return "upcoming";
+  return "online";
 }
 
 function mapSearchItem(
   item: LASearchItem,
-  includeSoldData: boolean
+  includeSoldData: boolean,
 ): SearchResult {
-  const imageUrl = item.photos?.length > 0
-    ? buildImageUrl(item.itemId, item.photos[0], item.imageVersion)
-    : '';
+  const imageUrl =
+    item.photos?.length > 0
+      ? buildImageUrl(item.itemId, item.photos[0], item.imageVersion)
+      : "";
 
   const result: SearchResult = {
     platform: PLATFORM,
     itemId: String(item.itemId),
-    title: item.title ?? '',
+    title: item.title ?? "",
     currentPrice: item.leadingBid ?? item.startPrice ?? 0,
-    currency: item.currency ?? 'USD',
+    currency: item.currency ?? "USD",
     imageUrl,
     thumbnailUrl: imageUrl,
     url: buildItemUrl(item.itemId),
@@ -245,21 +253,23 @@ function mapSearchItem(
   return result;
 }
 
-function inferAuctionType(item: LASearchItem): UnifiedItem['auctionType'] {
-  if (item.isLiveAuction) return 'live';
-  return 'timed';
+function inferAuctionType(item: LASearchItem): UnifiedItem["auctionType"] {
+  if (item.isLiveAuction) return "live";
+  return "timed";
 }
 
-function inferAuctionTypeFromStatus(status?: string): UnifiedItem['auctionType'] {
-  if (status === 'live') return 'live';
-  return 'timed';
+function inferAuctionTypeFromStatus(
+  status?: string,
+): UnifiedItem["auctionType"] {
+  if (status === "live") return "live";
+  return "timed";
 }
 
 function buildUnifiedItem(
   itemId: string,
   detail: LAItemDetail,
   facets: LAItemFacets,
-  content: LAContentItem
+  content: LAContentItem,
 ): UnifiedItem {
   const categoryNames = facets.categories?.map((c) => c.name) ?? [];
 
@@ -269,13 +279,13 @@ function buildUnifiedItem(
     platform: PLATFORM,
     url: buildItemUrl(itemId),
 
-    title: detail.title ?? '',
-    description: detail.description ?? '',
+    title: detail.title ?? "",
+    description: detail.description ?? "",
     images: detail.images?.map((img) => img.url) ?? [],
     category: categoryNames,
 
     currentPrice: detail.currentBid ?? 0,
-    currency: detail.currency ?? 'USD',
+    currency: detail.currency ?? "USD",
     estimateRange:
       detail.estimateLow !== undefined && detail.estimateHigh !== undefined
         ? { low: detail.estimateLow, high: detail.estimateHigh }
@@ -290,7 +300,7 @@ function buildUnifiedItem(
 
     seller: {
       id: detail.auctionHouse?.id?.toString(),
-      name: detail.auctionHouse?.name ?? 'Unknown',
+      name: detail.auctionHouse?.name ?? "Unknown",
       rating: detail.auctionHouse?.rating,
       location: detail.auctionHouse?.location,
     },
@@ -301,7 +311,9 @@ function buildUnifiedItem(
     dimensions: detail.dimensions,
     materials: detail.materials ?? facets.materials,
 
-    similarItems: content.similarItems?.map((item) => mapSearchItem(item, false)),
+    similarItems: content.similarItems?.map((item) =>
+      mapSearchItem(item, false),
+    ),
     facets: {
       categories: categoryNames,
       periods: facets.periods ?? [],
@@ -316,10 +328,10 @@ export type FetchFn = typeof fetch;
 async function fetchJson<T>(
   fetchFn: FetchFn,
   url: string,
-  errorContext: string
+  errorContext: string,
 ): Promise<T> {
   const response = await fetchFn(url, {
-    method: 'GET',
+    method: "GET",
     headers: REQUIRED_HEADERS,
   });
 
@@ -331,7 +343,7 @@ async function fetchJson<T>(
 }
 
 function extractItemData<T>(data: Record<string, T> | T, itemId: string): T {
-  if (data && typeof data === 'object' && itemId in data) {
+  if (data && typeof data === "object" && itemId in data) {
     return (data as Record<string, T>)[itemId];
   }
   return data as T;
@@ -339,8 +351,8 @@ function extractItemData<T>(data: Record<string, T> | T, itemId: string): T {
 
 // --- Status Filters ---
 
-const ACTIVE_AUCTION_STATUS = ['upcoming', 'live', 'online'] as const;
-const SOLD_ITEM_STATUS = ['sold', 'passed', 'done'] as const;
+const ACTIVE_AUCTION_STATUS = ["upcoming", "live", "online"] as const;
+const SOLD_ITEM_STATUS = ["sold", "passed", "done"] as const;
 
 // --- Adapter Class ---
 
@@ -362,7 +374,7 @@ export class LiveAuctioneersAdapter implements PlatformAdapter {
     const response = await fetchJson<LASearchApiResponse>(
       this.fetchFn,
       url,
-      'LiveAuctioneers search failed'
+      "LiveAuctioneers search failed",
     );
     const items = response.payload?.items ?? [];
     return items.map((item) => mapSearchItem(item, false));
@@ -374,7 +386,7 @@ export class LiveAuctioneersAdapter implements PlatformAdapter {
     const response = await fetchJson<LASearchApiResponse>(
       this.fetchFn,
       url,
-      'LiveAuctioneers price history failed'
+      "LiveAuctioneers price history failed",
     );
     const items = response.payload?.items ?? [];
     return items.map((item) => mapSearchItem(item, true));
@@ -385,17 +397,17 @@ export class LiveAuctioneersAdapter implements PlatformAdapter {
       fetchJson<Record<string, LAItemDetail> | LAItemDetail>(
         this.fetchFn,
         buildItemDetailUrl(itemId),
-        'Failed to fetch item detail'
+        "Failed to fetch item detail",
       ),
       fetchJson<Record<string, LAItemFacets> | LAItemFacets>(
         this.fetchFn,
         buildItemFacetsUrl(itemId),
-        'Failed to fetch item facets'
+        "Failed to fetch item facets",
       ),
       fetchJson<LAContentItem>(
         this.fetchFn,
         buildContentItemsUrl(itemId),
-        'Failed to fetch content items'
+        "Failed to fetch content items",
       ),
     ]);
 

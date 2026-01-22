@@ -12,6 +12,8 @@
     "test:integration": "vitest --run --testNamePattern='Integration'",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "prepare": "husky"
   },
   "dependencies": {
@@ -36,6 +38,7 @@
     "eslint-config-next": "16.0.10",
     "husky": "^9.1.7",
     "jsdom": "^26.1.0",
+    "prettier": "^3.6.2",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3.2.4"

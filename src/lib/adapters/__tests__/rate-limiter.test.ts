@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { RateLimiter, createRateLimitedFetch } from '../rate-limiter';
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { RateLimiter, createRateLimitedFetch } from "../rate-limiter";
 
-describe('RateLimiter', () => {
+describe("RateLimiter", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -10,13 +10,13 @@ describe('RateLimiter', () => {
     vi.useRealTimers();
   });
 
-  describe('constructor', () => {
-    it('initializes with full bucket', () => {
+  describe("constructor", () => {
+    it("initializes with full bucket", () => {
       const limiter = new RateLimiter({ requestsPerSecond: 2 });
       expect(limiter.canProceed()).toBe(true);
     });
 
-    it('uses requestsPerSecond as default maxBurst', () => {
+    it("uses requestsPerSecond as default maxBurst", () => {
       const limiter = new RateLimiter({ requestsPerSecond: 3 });
       expect(limiter.tryConsume()).toBe(true);
       expect(limiter.tryConsume()).toBe(true);
@@ -24,7 +24,7 @@ describe('RateLimiter', () => {
       expect(limiter.tryConsume()).toBe(false);
     });
 
-    it('respects custom maxBurst', () => {
+    it("respects custom maxBurst", () => {
       const limiter = new RateLimiter({ requestsPerSecond: 2, maxBurst: 5 });
       for (let i = 0; i < 5; i++) {
         expect(limiter.tryConsume()).toBe(true);
@@ -33,15 +33,15 @@ describe('RateLimiter', () => {
     });
   });
 
-  describe('tryConsume', () => {
-    it('consumes tokens successfully', () => {
+  describe("tryConsume", () => {
+    it("consumes tokens successfully", () => {
       const limiter = new RateLimiter({ requestsPerSecond: 2 });
       expect(limiter.tryConsume()).toBe(true);
       expect(limiter.tryConsume()).toBe(true);
       expect(limiter.tryConsume()).toBe(false);
     });
 
-    it('refills tokens over time', () => {
+    it("refills tokens over time", () => {
       const limiter = new RateLimiter({ requestsPerSecond: 2 });
       limiter.tryConsume();
       limiter.tryConsume();
@@ -52,7 +52,7 @@ describe('RateLimiter', () => {
       expect(limiter.tryConsume()).toBe(false);
     });
 
-    it('caps refill at maxBurst', () => {
+    it("caps refill at maxBurst", () => {
       const limiter = new RateLimiter({ requestsPerSecond: 2, maxBurst: 2 });
       limiter.tryConsume();
 
@@ -66,19 +66,19 @@ describe('RateLimiter', () => {
     });
   });
 
-  describe('canProceed', () => {
-    it('returns true when tokens available', () => {
+  describe("canProceed", () => {
+    it("returns true when tokens available", () => {
       const limiter = new RateLimiter({ requestsPerSecond: 1 });
       expect(limiter.canProceed()).toBe(true);
     });
 
-    it('returns false when depleted', () => {
+    it("returns false when depleted", () => {
       const limiter = new RateLimiter({ requestsPerSecond: 1 });
       limiter.tryConsume();
       expect(limiter.canProceed()).toBe(false);
     });
 
-    it('does not consume tokens', () => {
+    it("does not consume tokens", () => {
       const limiter = new RateLimiter({ requestsPerSecond: 1 });
       limiter.canProceed();
       limiter.canProceed();
@@ -88,13 +88,13 @@ describe('RateLimiter', () => {
     });
   });
 
-  describe('getWaitTime', () => {
-    it('returns 0 when tokens available', () => {
+  describe("getWaitTime", () => {
+    it("returns 0 when tokens available", () => {
       const limiter = new RateLimiter({ requestsPerSecond: 2 });
       expect(limiter.getWaitTime()).toBe(0);
     });
 
-    it('returns correct wait time when depleted', () => {
+    it("returns correct wait time when depleted", () => {
       const limiter = new RateLimiter({ requestsPerSecond: 2 });
       limiter.tryConsume();
       limiter.tryConsume();
@@ -102,7 +102,7 @@ describe('RateLimiter', () => {
       expect(limiter.getWaitTime()).toBe(500);
     });
 
-    it('returns partial wait time after some refill', () => {
+    it("returns partial wait time after some refill", () => {
       const limiter = new RateLimiter({ requestsPerSecond: 4 });
       limiter.tryConsume();
       limiter.tryConsume();
@@ -116,15 +116,15 @@ describe('RateLimiter', () => {
     });
   });
 
-  describe('acquire', () => {
-    it('proceeds immediately when tokens available', async () => {
+  describe("acquire", () => {
+    it("proceeds immediately when tokens available", async () => {
       const limiter = new RateLimiter({ requestsPerSecond: 2 });
       const start = Date.now();
       await limiter.acquire();
       expect(Date.now() - start).toBeLessThan(10);
     });
 
-    it('waits when rate limited', async () => {
+    it("waits when rate limited", async () => {
       const limiter = new RateLimiter({ requestsPerSecond: 2 });
       limiter.tryConsume();
       limiter.tryConsume();
@@ -136,7 +136,7 @@ describe('RateLimiter', () => {
       expect(limiter.canProceed()).toBe(false);
     });
 
-    it('consumes token after waiting', async () => {
+    it("consumes token after waiting", async () => {
       const limiter = new RateLimiter({ requestsPerSecond: 1 });
       limiter.tryConsume();
 
@@ -150,7 +150,7 @@ describe('RateLimiter', () => {
   });
 });
 
-describe('createRateLimitedFetch', () => {
+describe("createRateLimitedFetch", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -159,51 +159,51 @@ describe('createRateLimitedFetch', () => {
     vi.useRealTimers();
   });
 
-  it('wraps fetch with rate limiting', async () => {
-    const mockFetch = vi.fn().mockResolvedValue(new Response('ok'));
-    vi.stubGlobal('fetch', mockFetch);
+  it("wraps fetch with rate limiting", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(new Response("ok"));
+    vi.stubGlobal("fetch", mockFetch);
 
     const limiter = new RateLimiter({ requestsPerSecond: 1 });
     const rateLimitedFetch = createRateLimitedFetch(limiter);
 
-    await rateLimitedFetch('https://example.com');
-    expect(mockFetch).toHaveBeenCalledWith('https://example.com', undefined);
+    await rateLimitedFetch("https://example.com");
+    expect(mockFetch).toHaveBeenCalledWith("https://example.com", undefined);
 
     vi.unstubAllGlobals();
   });
 
-  it('passes through request options', async () => {
-    const mockFetch = vi.fn().mockResolvedValue(new Response('ok'));
-    vi.stubGlobal('fetch', mockFetch);
+  it("passes through request options", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(new Response("ok"));
+    vi.stubGlobal("fetch", mockFetch);
 
     const limiter = new RateLimiter({ requestsPerSecond: 10 });
     const rateLimitedFetch = createRateLimitedFetch(limiter);
 
     const options: RequestInit = {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ test: true }),
     };
-    await rateLimitedFetch('https://example.com/api', options);
+    await rateLimitedFetch("https://example.com/api", options);
 
-    expect(mockFetch).toHaveBeenCalledWith('https://example.com/api', options);
+    expect(mockFetch).toHaveBeenCalledWith("https://example.com/api", options);
 
     vi.unstubAllGlobals();
   });
 
-  it('delays requests when rate limited', async () => {
-    const mockFetch = vi.fn().mockResolvedValue(new Response('ok'));
-    vi.stubGlobal('fetch', mockFetch);
+  it("delays requests when rate limited", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(new Response("ok"));
+    vi.stubGlobal("fetch", mockFetch);
 
     const limiter = new RateLimiter({ requestsPerSecond: 1 });
     const rateLimitedFetch = createRateLimitedFetch(limiter);
 
     // First request - immediate
-    await rateLimitedFetch('https://example.com/1');
+    await rateLimitedFetch("https://example.com/1");
     expect(mockFetch).toHaveBeenCalledTimes(1);
 
     // Second request - should wait
-    const secondPromise = rateLimitedFetch('https://example.com/2');
+    const secondPromise = rateLimitedFetch("https://example.com/2");
     expect(mockFetch).toHaveBeenCalledTimes(1);
 
     vi.advanceTimersByTime(1000);
@@ -213,19 +213,19 @@ describe('createRateLimitedFetch', () => {
     vi.unstubAllGlobals();
   });
 
-  it('handles concurrent requests with rate limiting', async () => {
-    const mockFetch = vi.fn().mockResolvedValue(new Response('ok'));
-    vi.stubGlobal('fetch', mockFetch);
+  it("handles concurrent requests with rate limiting", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(new Response("ok"));
+    vi.stubGlobal("fetch", mockFetch);
 
     const limiter = new RateLimiter({ requestsPerSecond: 2, maxBurst: 2 });
     const rateLimitedFetch = createRateLimitedFetch(limiter);
 
     // Launch 4 requests simultaneously
     const promises = [
-      rateLimitedFetch('https://example.com/1'),
-      rateLimitedFetch('https://example.com/2'),
-      rateLimitedFetch('https://example.com/3'),
-      rateLimitedFetch('https://example.com/4'),
+      rateLimitedFetch("https://example.com/1"),
+      rateLimitedFetch("https://example.com/2"),
+      rateLimitedFetch("https://example.com/3"),
+      rateLimitedFetch("https://example.com/4"),
     ];
 
     // First 2 should go immediately (burst)

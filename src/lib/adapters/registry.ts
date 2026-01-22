@@ -3,8 +3,8 @@
  * Provides centralized access to platform adapters.
  */
 
-import { PlatformAdapter } from './types';
-import { LiveAuctioneersAdapter } from './liveauctioneers';
+import { PlatformAdapter } from "./types";
+import { LiveAuctioneersAdapter } from "./liveauctioneers";
 
 const adapters: Record<string, PlatformAdapter> = {
   liveauctioneers: new LiveAuctioneersAdapter(),
@@ -17,7 +17,7 @@ const adapters: Record<string, PlatformAdapter> = {
 export function getAdapter(platform: string): PlatformAdapter {
   const adapter = adapters[platform.toLowerCase()];
   if (!adapter) {
-    const available = Object.keys(adapters).join(', ');
+    const available = Object.keys(adapters).join(", ");
     throw new Error(`Unknown platform: ${platform}. Available: ${available}`);
   }
   return adapter;

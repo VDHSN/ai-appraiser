@@ -12,7 +12,7 @@ export interface SearchQuery {
   location?: string;
   page?: number;
   pageSize?: number;
-  sort?: 'relevance' | 'price-asc' | 'price-desc' | 'ending-soon';
+  sort?: "relevance" | "price-asc" | "price-desc" | "ending-soon";
 }
 
 export interface SearchResult {
@@ -27,7 +27,7 @@ export interface SearchResult {
   bidCount?: number;
   url: string;
   auctionHouse?: string;
-  status?: 'upcoming' | 'live' | 'online' | 'sold' | 'passed' | 'done';
+  status?: "upcoming" | "live" | "online" | "sold" | "passed" | "done";
   soldPrice?: number;
   soldDate?: Date;
 }
@@ -48,7 +48,7 @@ export interface UnifiedItem {
   estimateRange?: { low: number; high: number };
   buyNowPrice?: number;
 
-  auctionType: 'timed' | 'live' | 'buy-now';
+  auctionType: "timed" | "live" | "buy-now";
   endTime?: Date;
   startTime?: Date;
   bidCount?: number;

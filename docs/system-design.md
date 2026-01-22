@@ -49,12 +49,14 @@ An AI-powered auction exploration agent that acts as an expert curator, helping 
 The brain of the system using Vercel AI SDK's `streamText` with tool calling.
 
 **Persona**: Expert appraiser/curator with deep knowledge of:
+
 - Antiques & collectibles valuation
 - Market trends and pricing history
 - Authenticity indicators
 - Condition assessment terminology
 
 **Capabilities**:
+
 - Natural language item search
 - Proactive recommendations based on conversation context
 - Price guidance and market analysis
@@ -108,8 +110,8 @@ Normalized representation across all platforms:
 ```typescript
 interface UnifiedItem {
   // Identity
-  id: string;                    // Internal ID
-  platformItemId: string;        // Platform-specific ID
+  id: string; // Internal ID
+  platformItemId: string; // Platform-specific ID
   platform: string;
   url: string;
 
@@ -126,7 +128,7 @@ interface UnifiedItem {
   buyNowPrice?: number;
 
   // Auction state
-  auctionType: 'timed' | 'live' | 'buy-now';
+  auctionType: "timed" | "live" | "buy-now";
   endTime?: Date;
   bidCount?: number;
 
@@ -147,13 +149,13 @@ interface UnifiedItem {
 
 Tools exposed to the AI agent via Vercel AI SDK:
 
-| Tool | Description |
-|------|-------------|
-| `searchItems` | Search across one or all platforms |
-| `getItemDetails` | Fetch full details for a specific item |
-| `compareItems` | Side-by-side comparison of 2+ items |
-| `getPriceHistory` | Historical pricing for similar items |
-| `assessValue` | AI-powered valuation analysis |
+| Tool              | Description                            |
+| ----------------- | -------------------------------------- |
+| `searchItems`     | Search across one or all platforms     |
+| `getItemDetails`  | Fetch full details for a specific item |
+| `compareItems`    | Side-by-side comparison of 2+ items    |
+| `getPriceHistory` | Historical pricing for similar items   |
+| `assessValue`     | AI-powered valuation analysis          |
 
 ## API Routes Structure
 
@@ -210,14 +212,14 @@ User: "Find me Art Deco table lamps under $500"
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Framework | Next.js 14+ (App Router) |
-| AI | Vercel AI SDK + Claude |
-| Styling | Tailwind CSS |
-| State | React Server Components + `useChat` |
-| Testing | Vitest (TDD approach) |
-| Deployment | Vercel |
+| Layer      | Technology                          |
+| ---------- | ----------------------------------- |
+| Framework  | Next.js 14+ (App Router)            |
+| AI         | Vercel AI SDK + Claude              |
+| Styling    | Tailwind CSS                        |
+| State      | React Server Components + `useChat` |
+| Testing    | Vitest (TDD approach)               |
+| Deployment | Vercel                              |
 
 ## Architecture Principles
 
@@ -229,16 +231,19 @@ User: "Find me Art Deco table lamps under $500"
 ## Platform Adapter Implementation Notes
 
 ### LiveAuctioneers
+
 - Undocumented public API available
 - Rich data: provenance, auction house details, live auction schedules
 - Primary platform for MVP
 
 ### eBay
+
 - Official API available (eBay Browse API)
 - OAuth required
 - Good for: Buy It Now, completed sales data for comps
 
 ### Future Platforms
+
 - Christie's / Sotheby's (high-end)
 - Invaluable
 - 1stDibs
@@ -248,27 +253,30 @@ User: "Find me Art Deco table lamps under $500"
 ## MVP Scope
 
 **Phase 1 - Core Search & Chat**
+
 - [ ] Basic chat UI with streaming
 - [ ] LiveAuctioneers adapter
 - [ ] `searchItems` and `getItemDetails` tools
 - [ ] Item card display with images
 
 **Phase 2 - Price History & Valuation**
+
 - [ ] `getPriceHistory` tool (sold items database)
 - [ ] `assessValue` tool (AI-powered appraisal)
 - [ ] Compare view for side-by-side analysis
 
 **Phase 3 - Multi-Platform (Future)**
+
 - [ ] eBay adapter
 - [ ] Unified search across platforms
 - [ ] Basic deduplication
 
 ## Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| First Platform | LiveAuctioneers | Undocumented public API available |
-| Scraping | Case-by-case | Prefer APIs, scrape only when necessary |
+| Decision       | Choice          | Rationale                               |
+| -------------- | --------------- | --------------------------------------- |
+| First Platform | LiveAuctioneers | Undocumented public API available       |
+| Scraping       | Case-by-case    | Prefer APIs, scrape only when necessary |
 
 ## Next Steps
 
