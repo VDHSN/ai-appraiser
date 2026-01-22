@@ -61,6 +61,12 @@ export function ChatContainer() {
           {messages.map((message) => (
             <ChatMessage key={message.id} message={message} />
           ))}
+          {status === "submitted" && (
+            <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600 dark:border-zinc-600 dark:border-t-zinc-300" />
+              <span className="text-sm">Thinking...</span>
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
       </main>
