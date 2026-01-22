@@ -30,11 +30,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Host not allowed" }, { status: 403 });
   }
 
-  // Fetch image
+  // Fetch image with browser-like headers (Chrome Client Hints required)
   const response = await fetch(url, {
     headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; AuctionProxy/1.0)",
-      Referer: parsedUrl.origin,
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+      Referer: "https://www.liveauctioneers.com/",
+      "sec-ch-ua": '"Not(A:Brand";v="8", "Chromium";v="144"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"macOS"',
     },
   });
 

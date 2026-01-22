@@ -71,6 +71,7 @@ interface LASearchItem {
   bidCount?: number;
   sellerName: string;
   sellerId: number;
+  catalogId: number;
   catalogStatus: string;
   catalogTitle?: string;
   salePrice?: number;
@@ -196,12 +197,14 @@ function buildItemUrl(itemId: string | number): string {
 }
 
 function buildImageUrl(
+  sellerId: number,
+  catalogId: number,
   itemId: number,
   photoIndex: number,
   imageVersion?: number,
 ): string {
   const version = imageVersion ?? Date.now();
-  return `https://p1.liveauctioneers.com/6/${itemId}/${photoIndex}_1_x.jpg?version=${version}`;
+  return `https://p1.liveauctioneers.com/${sellerId}/${catalogId}/${itemId}_${photoIndex}_x.jpg?version=${version}`;
 }
 
 function mapSearchStatus(item: LASearchItem): SearchResult["status"] {
@@ -219,7 +222,13 @@ function mapSearchItem(
 ): SearchResult {
   const imageUrl =
     item.photos?.length > 0
-      ? buildImageUrl(item.itemId, item.photos[0], item.imageVersion)
+      ? buildImageUrl(
+          item.sellerId,
+          item.catalogId,
+          item.itemId,
+          item.photos[0],
+          item.imageVersion,
+        )
       : "";
 
   const result: SearchResult = {

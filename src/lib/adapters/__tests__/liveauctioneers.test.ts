@@ -39,6 +39,7 @@ const mockSearchItem: LASearchItem = {
   bidCount: 5,
   sellerName: "Heritage Auctions",
   sellerId: 123,
+  catalogId: 456789,
   catalogStatus: "online",
 };
 
@@ -54,6 +55,7 @@ const mockSoldItem: LASearchItem = {
   salePrice: 225,
   sellerName: "Sothebys",
   sellerId: 456,
+  catalogId: 789012,
   catalogStatus: "done",
   isSold: true,
 };
@@ -206,8 +208,9 @@ describe("mapSearchItem", () => {
     const result = mapSearchItem(mockSearchItem, false);
 
     expect(result.imageUrl).toContain("liveauctioneers.com");
-    expect(result.imageUrl).toContain("12345");
-    expect(result.imageUrl).toContain("1_1_x.jpg");
+    expect(result.imageUrl).toContain("/123/"); // sellerId
+    expect(result.imageUrl).toContain("/456789/"); // catalogId
+    expect(result.imageUrl).toContain("12345_1_x.jpg"); // itemId_photoIndex_x.jpg
   });
 
   it("excludes sold data when includeSoldData is false", () => {
@@ -235,6 +238,7 @@ describe("mapSearchItem", () => {
       saleStartTs: 0,
       sellerName: "",
       sellerId: 0,
+      catalogId: 0,
       catalogStatus: "online",
     };
     const result = mapSearchItem(minimalItem, false);

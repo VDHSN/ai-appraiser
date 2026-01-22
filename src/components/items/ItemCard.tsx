@@ -32,10 +32,17 @@ export function ItemCard({ item, onSelect }: ItemCardProps) {
   const [imgError, setImgError] = useState(false);
   const timeRemaining = formatTimeRemaining(item.endTime);
 
+  const handleClick = () => {
+    if (item.url) {
+      window.open(item.url, "_blank", "noopener,noreferrer");
+    }
+    onSelect?.(item);
+  };
+
   return (
     <div
       className="group relative cursor-pointer rounded-lg border border-zinc-200 bg-white transition-shadow hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900"
-      onClick={() => onSelect?.(item)}
+      onClick={handleClick}
     >
       <div className="absolute right-2 top-2 z-10">
         <CompareToggle item={item} />
