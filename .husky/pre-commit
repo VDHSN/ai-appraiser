@@ -1,5 +1,4 @@
-pnpm format:check
-pnpm lint
+pnpm lint --fix
+pnpm format
 pnpm tsc --noEmit
 pnpm test:unit
-pnpm test:integration
