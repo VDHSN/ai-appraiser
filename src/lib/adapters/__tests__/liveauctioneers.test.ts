@@ -96,20 +96,43 @@ const mockItemFacets = {
 };
 
 const mockContentItems = {
-  similarItems: [
-    {
-      itemId: 54321,
-      title: "Similar Art Deco Lamp",
-      leadingBid: 175,
-      startPrice: 100,
-      currency: "USD",
-      photos: [1],
-      sellerName: "Test Auction",
-      sellerId: 789,
-      catalogStatus: "online",
-      saleStartTs: 1738400400,
-    } as LASearchItem,
-  ],
+  error: false,
+  payload: {
+    items: [
+      {
+        itemId: 12345,
+        catalogId: 456789,
+        sellerId: 123,
+        sellerName: "Heritage Auctions",
+        sellerCity: "Dallas",
+        sellerStateCode: "TX",
+        currency: "USD",
+        leadingBid: 150,
+        bidCount: 5,
+        lowBidEstimate: 100,
+        highBidEstimate: 300,
+        photos: [1, 2, 3],
+        imageVersion: 1234567890,
+        catalogStatus: "online",
+        lotNumber: "A-123",
+        similarItems: [
+          {
+            itemId: 54321,
+            title: "Similar Art Deco Lamp",
+            leadingBid: 175,
+            startPrice: 100,
+            currency: "USD",
+            photos: [1],
+            sellerName: "Test Auction",
+            sellerId: 789,
+            catalogId: 111222,
+            catalogStatus: "online",
+            saleStartTs: 1738400400,
+          } as LASearchItem,
+        ],
+      },
+    ],
+  },
 };
 
 // --- Pure Function Tests ---
@@ -289,7 +312,7 @@ describe("buildUnifiedItem", () => {
       "12345",
       mockItemDetail,
       mockItemFacets,
-      mockContentItems,
+      mockContentItems.payload.items[0],
     );
 
     expect(item.id).toBe("la-12345");
@@ -303,7 +326,7 @@ describe("buildUnifiedItem", () => {
   });
 
   it("handles empty/missing data gracefully", () => {
-    const item = buildUnifiedItem("999", {}, {}, {});
+    const item = buildUnifiedItem("999", {}, {}, undefined);
 
     expect(item.id).toBe("la-999");
     expect(item.title).toBe("");
@@ -317,17 +340,27 @@ describe("buildUnifiedItem", () => {
   });
 
   it("requires both estimate values for estimateRange", () => {
-    const itemLowOnly = buildUnifiedItem("1", { estimateLow: 100 }, {}, {});
+    const itemLowOnly = buildUnifiedItem(
+      "1",
+      { estimateLow: 100 },
+      {},
+      undefined,
+    );
     expect(itemLowOnly.estimateRange).toBeUndefined();
 
-    const itemHighOnly = buildUnifiedItem("2", { estimateHigh: 500 }, {}, {});
+    const itemHighOnly = buildUnifiedItem(
+      "2",
+      { estimateHigh: 500 },
+      {},
+      undefined,
+    );
     expect(itemHighOnly.estimateRange).toBeUndefined();
 
     const itemBoth = buildUnifiedItem(
       "3",
       { estimateLow: 100, estimateHigh: 500 },
       {},
-      {},
+      undefined,
     );
     expect(itemBoth.estimateRange).toEqual({ low: 100, high: 500 });
   });
@@ -337,13 +370,18 @@ describe("buildUnifiedItem", () => {
       "1",
       { materials: ["Gold"] },
       { materials: ["Silver"] },
-      {},
+      undefined,
     );
     expect(item.materials).toEqual(["Gold"]);
   });
 
   it("falls back to facet materials when detail has none", () => {
-    const item = buildUnifiedItem("1", {}, { materials: ["Silver"] }, {});
+    const item = buildUnifiedItem(
+      "1",
+      {},
+      { materials: ["Silver"] },
+      undefined,
+    );
     expect(item.materials).toEqual(["Silver"]);
   });
 });

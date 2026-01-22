@@ -134,7 +134,38 @@ interface LAItemFacets {
   periods?: string[];
 }
 
+/** Response from content/items API - contains main item data and similar items */
+interface LAContentResponse {
+  error: boolean;
+  payload: {
+    items: LAContentItem[];
+  };
+}
+
+/** Item data from content API - has most fields we need */
 interface LAContentItem {
+  itemId: number;
+  catalogId: number;
+  sellerId: number;
+  sellerName: string;
+  sellerCity?: string;
+  sellerStateCode?: string;
+  sellerCountryCode?: string;
+  catalogTitle?: string;
+  lotNumber?: string;
+  currency: string;
+  leadingBid: number;
+  bidCount?: number;
+  lowBidEstimate?: number;
+  highBidEstimate?: number;
+  photos: number[];
+  imageVersion?: number;
+  catalogStatus?: string;
+  saleStartTs?: number;
+  saleEndEstimatedTs?: number;
+  title?: string;
+  description?: string;
+  condition?: string;
   similarItems?: LASearchItem[];
 }
 
@@ -278,9 +309,30 @@ function buildUnifiedItem(
   itemId: string,
   detail: LAItemDetail,
   facets: LAItemFacets,
-  content: LAContentItem,
+  content?: LAContentItem,
 ): UnifiedItem {
   const categoryNames = facets.categories?.map((c) => c.name) ?? [];
+
+  // Build image URLs from content API data (more reliable than detail API)
+  const images: string[] =
+    detail.images?.map((img) => img.url) ??
+    content?.photos?.map((photoIndex) =>
+      buildImageUrl(
+        content.sellerId,
+        content.catalogId,
+        content.itemId,
+        photoIndex,
+        content.imageVersion,
+      ),
+    ) ??
+    [];
+
+  // Build seller location from content data
+  const sellerLocation = content
+    ? [content.sellerCity, content.sellerStateCode, content.sellerCountryCode]
+        .filter(Boolean)
+        .join(", ")
+    : detail.auctionHouse?.location;
 
   return {
     id: `la-${itemId}`,
@@ -288,39 +340,52 @@ function buildUnifiedItem(
     platform: PLATFORM,
     url: buildItemUrl(itemId),
 
-    title: detail.title ?? "",
-    description: detail.description ?? "",
-    images: detail.images?.map((img) => img.url) ?? [],
+    title: detail.title ?? content?.title ?? content?.catalogTitle ?? "",
+    description: detail.description ?? content?.description ?? "",
+    images,
     category: categoryNames,
 
-    currentPrice: detail.currentBid ?? 0,
-    currency: detail.currency ?? "USD",
+    currentPrice: detail.currentBid ?? content?.leadingBid ?? 0,
+    currency: detail.currency ?? content?.currency ?? "USD",
     estimateRange:
       detail.estimateLow !== undefined && detail.estimateHigh !== undefined
         ? { low: detail.estimateLow, high: detail.estimateHigh }
-        : undefined,
+        : content?.lowBidEstimate !== undefined &&
+            content?.highBidEstimate !== undefined
+          ? { low: content.lowBidEstimate, high: content.highBidEstimate }
+          : undefined,
     buyNowPrice: detail.buyNowPrice,
 
-    auctionType: inferAuctionTypeFromStatus(detail.status),
-    startTime: detail.saleStart ? new Date(detail.saleStart) : undefined,
-    endTime: detail.saleEnd ? new Date(detail.saleEnd) : undefined,
-    bidCount: detail.bidCount,
-    lotNumber: detail.lotNumber,
+    auctionType: inferAuctionTypeFromStatus(
+      detail.status ?? content?.catalogStatus,
+    ),
+    startTime: detail.saleStart
+      ? new Date(detail.saleStart)
+      : content?.saleStartTs
+        ? new Date(content.saleStartTs * 1000)
+        : undefined,
+    endTime: detail.saleEnd
+      ? new Date(detail.saleEnd)
+      : content?.saleEndEstimatedTs
+        ? new Date(content.saleEndEstimatedTs * 1000)
+        : undefined,
+    bidCount: detail.bidCount ?? content?.bidCount,
+    lotNumber: detail.lotNumber ?? content?.lotNumber,
 
     seller: {
-      id: detail.auctionHouse?.id?.toString(),
-      name: detail.auctionHouse?.name ?? "Unknown",
+      id: detail.auctionHouse?.id?.toString() ?? content?.sellerId?.toString(),
+      name: detail.auctionHouse?.name ?? content?.sellerName ?? "Unknown",
       rating: detail.auctionHouse?.rating,
-      location: detail.auctionHouse?.location,
+      location: sellerLocation,
     },
 
-    condition: detail.condition,
+    condition: detail.condition ?? content?.condition,
     conditionNotes: detail.conditionReport,
     provenance: detail.provenance,
     dimensions: detail.dimensions,
     materials: detail.materials ?? facets.materials,
 
-    similarItems: content.similarItems?.map((item) =>
+    similarItems: content?.similarItems?.map((item) =>
       mapSearchItem(item, false),
     ),
     facets: {
@@ -402,7 +467,7 @@ export class LiveAuctioneersAdapter implements PlatformAdapter {
   }
 
   async getItem(itemId: string): Promise<UnifiedItem> {
-    const [detailRaw, facetsRaw, content] = await Promise.all([
+    const [detailRaw, facetsRaw, contentResponse] = await Promise.all([
       fetchJson<Record<string, LAItemDetail> | LAItemDetail>(
         this.fetchFn,
         buildItemDetailUrl(itemId),
@@ -413,7 +478,7 @@ export class LiveAuctioneersAdapter implements PlatformAdapter {
         buildItemFacetsUrl(itemId),
         "Failed to fetch item facets",
       ),
-      fetchJson<LAContentItem>(
+      fetchJson<LAContentResponse>(
         this.fetchFn,
         buildContentItemsUrl(itemId),
         "Failed to fetch content items",
@@ -422,8 +487,9 @@ export class LiveAuctioneersAdapter implements PlatformAdapter {
 
     const detail = extractItemData(detailRaw, itemId);
     const facets = extractItemData(facetsRaw, itemId);
+    const contentItem = contentResponse.payload?.items?.[0];
 
-    return buildUnifiedItem(itemId, detail, facets, content);
+    return buildUnifiedItem(itemId, detail, facets, contentItem);
   }
 }
 

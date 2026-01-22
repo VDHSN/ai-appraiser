@@ -12,11 +12,11 @@ export async function POST(req: Request) {
   const { messages }: { messages: UIMessage[] } = await req.json();
 
   const result = streamText({
-    model: google("gemini-2.0-flash"),
+    model: google("gemini-3-pro-preview"),
     system: systemPrompt,
     messages: await convertToModelMessages(messages),
     tools,
-    stopWhen: stepCountIs(5),
+    stopWhen: stepCountIs(7),
   });
 
   return result.toUIMessageStreamResponse();
