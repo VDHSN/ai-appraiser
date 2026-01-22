@@ -1,0 +1,4 @@
+pnpm lint
+pnpm tsc --noEmit
+pnpm test:unit
+pnpm test:integration

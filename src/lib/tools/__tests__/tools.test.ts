@@ -7,7 +7,7 @@ vi.mock('@/lib/adapters/registry', () => ({
   listPlatforms: vi.fn(() => ['liveauctioneers']),
 }));
 
-import { getAdapter, listPlatforms } from '@/lib/adapters/registry';
+import { getAdapter } from '@/lib/adapters/registry';
 
 const mockAdapter = {
   platform: 'liveauctioneers',

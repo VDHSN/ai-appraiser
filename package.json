@@ -11,7 +11,8 @@
     "test:unit": "vitest --run --exclude='**/*.integration.test.ts'",
     "test:integration": "vitest --run --testNamePattern='Integration'",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "prepare": "husky"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.10",
@@ -33,6 +34,7 @@
     "@vitejs/plugin-react": "^5.1.1",
     "eslint": "^9",
     "eslint-config-next": "16.0.10",
+    "husky": "^9.1.7",
     "jsdom": "^26.1.0",
     "tailwindcss": "^4",
     "typescript": "^5",

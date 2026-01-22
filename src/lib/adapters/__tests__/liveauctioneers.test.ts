@@ -15,7 +15,7 @@ import {
 
 const createMockFetch = (responses: Array<{ ok: boolean; status?: number; data?: unknown }>) => {
   let callIndex = 0;
-  return vi.fn(async () => {
+  return vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
     const response = responses[callIndex++] ?? responses[responses.length - 1];
     return {
       ok: response.ok,
