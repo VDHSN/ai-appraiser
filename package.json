@@ -14,6 +14,7 @@
     "test:coverage": "vitest --coverage",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
     "link:skills": "rm -rf .claude/skills && ln -s ../.agents/skills .claude/skills",
     "prepare": "husky && pnpm run link:skills"
   },
