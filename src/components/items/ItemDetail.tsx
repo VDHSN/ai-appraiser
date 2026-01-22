@@ -4,7 +4,6 @@ import type { UnifiedItem } from "@/lib/adapters/types";
 import { Badge } from "@/components/ui/Badge";
 import { Price, PriceRange } from "@/components/ui/Price";
 import { ImageGallery } from "./ImageGallery";
-import { CompareToggle } from "@/components/compare/CompareToggle";
 
 interface ItemDetailProps {
   item: UnifiedItem;
@@ -17,12 +16,9 @@ export function ItemDetail({ item }: ItemDetailProps) {
         <ImageGallery images={item.images} alt={item.title} />
 
         <div className="space-y-4">
-          <div className="flex items-start justify-between gap-3">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-              {item.title}
-            </h2>
-            <CompareToggle item={item} />
-          </div>
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+            {item.title}
+          </h2>
 
           <div className="flex flex-wrap gap-2">
             {item.category.map((cat) => (

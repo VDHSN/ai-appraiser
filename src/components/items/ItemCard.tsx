@@ -4,7 +4,6 @@ import { useState } from "react";
 import type { SearchResult } from "@/lib/adapters/types";
 import { Badge } from "@/components/ui/Badge";
 import { Price } from "@/components/ui/Price";
-import { CompareToggle } from "@/components/compare/CompareToggle";
 import { getProxiedImageUrl } from "@/lib/image-proxy";
 
 interface ItemCardProps {
@@ -44,10 +43,6 @@ export function ItemCard({ item, onSelect }: ItemCardProps) {
       className="group relative cursor-pointer rounded-lg border border-zinc-200 bg-white transition-shadow hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900"
       onClick={handleClick}
     >
-      <div className="absolute right-2 top-2 z-10">
-        <CompareToggle item={item} />
-      </div>
-
       <div className="relative aspect-[4/3] overflow-hidden rounded-t-lg bg-zinc-100 dark:bg-zinc-800">
         {imgError ? (
           <div className="flex h-full w-full items-center justify-center text-zinc-400">

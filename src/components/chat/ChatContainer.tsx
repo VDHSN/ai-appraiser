@@ -5,7 +5,6 @@ import { DefaultChatTransport } from "ai";
 import { useEffect, useRef, useState, FormEvent, useMemo } from "react";
 import { ChatInput } from "./ChatInput";
 import { ChatMessage } from "./ChatMessage";
-import { CompareBar } from "@/components/compare/CompareBar";
 
 export function ChatContainer() {
   const transport = useMemo(
@@ -42,7 +41,7 @@ export function ChatContainer() {
             Auction Curator
           </h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Find, compare, and evaluate auction items
+            Find and evaluate auction items
           </p>
         </div>
       </header>
@@ -65,8 +64,6 @@ export function ChatContainer() {
           <div ref={messagesEndRef} />
         </div>
       </main>
-
-      <CompareBar />
 
       <ChatInput
         value={input}
