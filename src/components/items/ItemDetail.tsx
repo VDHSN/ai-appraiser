@@ -3,6 +3,7 @@
 import type { UnifiedItem } from "@/lib/adapters/types";
 import { Badge } from "@/components/ui/Badge";
 import { Price, PriceRange } from "@/components/ui/Price";
+import { SafeHtml } from "@/components/ui/SafeHtml";
 import { ImageGallery } from "./ImageGallery";
 
 interface ItemDetailProps {
@@ -54,9 +55,10 @@ export function ItemDetail({ item }: ItemDetailProps) {
               <h3 className="mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Description
               </h3>
-              <p className="whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-400">
-                {item.description}
-              </p>
+              <SafeHtml
+                html={item.description}
+                className="prose prose-sm prose-zinc dark:prose-invert max-w-none text-zinc-600 dark:text-zinc-400"
+              />
             </div>
           )}
 

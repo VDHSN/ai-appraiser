@@ -6,6 +6,7 @@
 import { z } from "zod";
 import { getAdapter, listPlatforms } from "@/lib/adapters/registry";
 import type { SearchResult, UnifiedItem } from "@/lib/adapters/types";
+import type { ToolName } from "@/lib/agent/types";
 
 /**
  * Valuation assessment result shape.
@@ -17,6 +18,15 @@ interface ValuationAssessment {
   confidence: "high" | "medium" | "low";
   factors: string[];
   recommendation: string;
+}
+
+/**
+ * Mode switch result shape.
+ */
+interface ModeSwitchResult {
+  switched: boolean;
+  targetAgent: "curator" | "appraiser";
+  reason: string;
 }
 
 /**
@@ -211,8 +221,45 @@ export const tools = {
       };
     },
   },
+
+  switchAgentMode: {
+    description:
+      "Switch to a DIFFERENT agent mode. Only use this to switch to an agent you are NOT currently. After switching, continue helping the user - do not stop.",
+    inputSchema: z.object({
+      targetAgent: z
+        .enum(["curator", "appraiser"])
+        .describe("The agent to switch to (must be different from current)"),
+      reason: z
+        .string()
+        .describe("Brief explanation of why switching is appropriate"),
+    }),
+    execute: async ({
+      targetAgent,
+      reason,
+    }: {
+      targetAgent: "curator" | "appraiser";
+      reason: string;
+    }): Promise<ModeSwitchResult> => {
+      return { switched: true, targetAgent, reason };
+    },
+  },
 };
 
+/**
+ * Get a subset of tools by their names.
+ * Used to provide different tools to different agents.
+ */
+export function getToolSubset(toolIds: ToolName[]): Partial<typeof tools> {
+  return Object.fromEntries(
+    Object.entries(tools).filter(([key]) => toolIds.includes(key as ToolName)),
+  ) as Partial<typeof tools>;
+}
+
 // Export individual tools for direct access in tests
-export const { searchItems, getItemDetails, getPriceHistory, assessValue } =
-  tools;
+export const {
+  searchItems,
+  getItemDetails,
+  getPriceHistory,
+  assessValue,
+  switchAgentMode,
+} = tools;

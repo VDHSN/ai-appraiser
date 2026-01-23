@@ -2,16 +2,24 @@
 
 import type { SearchResult, UnifiedItem } from "@/lib/adapters/types";
 import type { ValuationAssessment } from "@/types/chat";
+import type { AgentId } from "@/lib/agent";
 import { ItemCardGrid } from "@/components/items/ItemCardGrid";
 import { ItemDetail } from "@/components/items/ItemDetail";
 import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { ModeSwitchCard } from "./ModeSwitchCard";
 
 interface ToolInvocationProps {
   toolName: string;
   toolCallId: string;
   state: string;
   result?: unknown;
+}
+
+interface ModeSwitchResult {
+  switched: boolean;
+  targetAgent: AgentId;
+  reason: string;
 }
 
 export function ToolInvocation({
@@ -38,6 +46,15 @@ export function ToolInvocation({
       return <ItemDetail item={result as UnifiedItem} />;
     case "assessValue":
       return <ValuationResult assessment={result as ValuationAssessment} />;
+    case "switchAgentMode": {
+      const switchResult = result as ModeSwitchResult;
+      return (
+        <ModeSwitchCard
+          targetAgent={switchResult.targetAgent}
+          reason={switchResult.reason}
+        />
+      );
+    }
     default:
       return (
         <div className="rounded-lg bg-zinc-100 p-3 text-sm dark:bg-zinc-800">
@@ -55,6 +72,7 @@ function ToolLoading({ toolName }: { toolName: string }) {
     getItemDetails: "Loading item details...",
     getPriceHistory: "Finding comparable sales...",
     assessValue: "Calculating valuation...",
+    switchAgentMode: "Switching mode...",
   };
 
   return (
