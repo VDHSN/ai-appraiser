@@ -5,11 +5,20 @@ import { DefaultChatTransport } from "ai";
 import { useEffect, useRef, useState, FormEvent, useMemo } from "react";
 import { ChatInput } from "./ChatInput";
 import { ChatMessage } from "./ChatMessage";
+import { AgentSelector } from "./AgentSelector";
+import { useAgent } from "@/lib/agent";
+import type { AgentId } from "@/lib/agent";
 
 export function ChatContainer() {
+  const { agentId, setAgentId, agent, isHydrated } = useAgent();
+
   const transport = useMemo(
-    () => new DefaultChatTransport({ api: "/api/chat" }),
-    [],
+    () =>
+      new DefaultChatTransport({
+        api: "/api/chat",
+        body: { agentId },
+      }),
+    [agentId],
   );
 
   const { messages, sendMessage, status, stop } = useChat({
@@ -25,6 +34,32 @@ export function ChatContainer() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Handle agent-initiated mode switches
+  useEffect(() => {
+    for (const message of messages) {
+      if (message.role === "assistant" && message.parts) {
+        for (const part of message.parts) {
+          // Check for tool invocation with switchAgentMode
+          if (
+            part.type === "tool-invocation" &&
+            "toolName" in part &&
+            part.toolName === "switchAgentMode"
+          ) {
+            // Try both 'result' and 'output' property names for compatibility
+            const partAny = part as Record<string, unknown>;
+            const result = (partAny.result ?? partAny.output) as
+              | { switched: boolean; targetAgent: AgentId }
+              | undefined;
+            if (result?.switched && result.targetAgent !== agentId) {
+              setAgentId(result.targetAgent);
+              return; // Only switch once
+            }
+          }
+        }
+      }
+    }
+  }, [messages, agentId, setAgentId]);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
@@ -33,16 +68,16 @@ export function ChatContainer() {
     await sendMessage({ text });
   };
 
+  // Don't render until hydrated to prevent flash
+  if (!isHydrated) {
+    return null;
+  }
+
   return (
     <div className="flex h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
       <header className="border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="mx-auto max-w-3xl">
-          <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-            Auction Curator
-          </h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Find and evaluate auction items
-          </p>
+        <div className="mx-auto max-w-3xl space-y-3">
+          <AgentSelector />
         </div>
       </header>
 
@@ -51,10 +86,10 @@ export function ChatContainer() {
           {messages.length === 0 && (
             <div className="py-12 text-center">
               <p className="text-zinc-500 dark:text-zinc-400">
-                Start by searching for auction items
+                {agent.placeholder.text}
               </p>
               <p className="mt-2 text-sm text-zinc-400 dark:text-zinc-500">
-                Try: &quot;Find art deco lamps under $500&quot;
+                {agent.placeholder.example}
               </p>
             </div>
           )}
