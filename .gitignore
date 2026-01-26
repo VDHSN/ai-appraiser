@@ -40,4 +40,14 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# claude code
 .claude/settings.local.json
+.claude/settings.json
+.claude/agents
+.claude/commands
+
+# mcp
+.mcp.json
+
+# eslint
+.eslintcache
