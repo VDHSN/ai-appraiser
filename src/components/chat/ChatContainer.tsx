@@ -97,9 +97,16 @@ export function ChatContainer() {
             <ChatMessage key={message.id} message={message} />
           ))}
           {status === "submitted" && (
-            <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600 dark:border-zinc-600 dark:border-t-zinc-300" />
-              <span className="text-sm">Thinking...</span>
+            <div className="flex items-center gap-2 py-2 text-zinc-500 dark:text-zinc-400">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600 dark:border-zinc-600 dark:border-t-zinc-300" />
+              <span>Thinking...</span>
+            </div>
+          )}
+          {status === "streaming" && (
+            <div className="flex items-center justify-center gap-2 py-2">
+              <span className="h-3 w-3 animate-[bounce_0.6s_ease-in-out_infinite] rounded-full bg-zinc-500 dark:bg-zinc-400 [animation-delay:-0.3s]" />
+              <span className="h-3 w-3 animate-[bounce_0.6s_ease-in-out_infinite] rounded-full bg-zinc-500 dark:bg-zinc-400 [animation-delay:-0.15s]" />
+              <span className="h-3 w-3 animate-[bounce_0.6s_ease-in-out_infinite] rounded-full bg-zinc-500 dark:bg-zinc-400" />
             </div>
           )}
           <div ref={messagesEndRef} />
