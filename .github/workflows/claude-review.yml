@@ -28,4 +28,3 @@ jobs:
             4. TypeScript best practices
 
             Provide actionable feedback with specific suggestions.
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
