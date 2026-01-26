@@ -128,13 +128,6 @@ interface LAItemDetail {
   status?: string;
 }
 
-/** Response from spa/small/item-detail API */
-interface LAItemDetailResponse {
-  data: {
-    itemDetails: LAItemDetail[];
-  };
-}
-
 interface LAItemFacets {
   categories?: Array<{ id: string; name: string }>;
   materials?: string[];
@@ -300,14 +293,7 @@ function mapSearchItem(
   return result;
 }
 
-function inferAuctionType(item: LASearchItem): UnifiedItem["auctionType"] {
-  if (item.isLiveAuction) return "live";
-  return "timed";
-}
-
-function inferAuctionTypeFromStatus(
-  status?: string,
-): UnifiedItem["auctionType"] {
+function inferAuctionType(status?: string): UnifiedItem["auctionType"] {
   if (status === "live") return "live";
   return "timed";
 }
@@ -363,9 +349,7 @@ function buildUnifiedItem(
           : undefined,
     buyNowPrice: detail.buyNowPrice,
 
-    auctionType: inferAuctionTypeFromStatus(
-      detail.status ?? content?.catalogStatus,
-    ),
+    auctionType: inferAuctionType(detail.status ?? content?.catalogStatus),
     startTime: detail.saleStart
       ? new Date(detail.saleStart)
       : content?.saleStartTs
@@ -519,7 +503,7 @@ export {
   buildSearchUrl,
   mapSearchItem,
   buildUnifiedItem,
-  inferAuctionTypeFromStatus as inferAuctionType,
+  inferAuctionType,
   ACTIVE_AUCTION_STATUS,
   SOLD_ITEM_STATUS,
   type LASearchItem,

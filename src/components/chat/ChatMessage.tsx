@@ -3,6 +3,7 @@
 import type { UIMessage } from "ai";
 import { Streamdown } from "streamdown";
 import { ToolInvocation } from "./ToolInvocation";
+import { ThinkingIndicator } from "./ThinkingIndicator";
 
 interface ChatMessageProps {
   message: UIMessage;
@@ -50,6 +51,21 @@ export function ChatMessage({ message }: ChatMessageProps) {
               >
                 {part.text}
               </Streamdown>
+            );
+          }
+
+          if (part.type === "reasoning") {
+            const reasoningPart = part as {
+              type: "reasoning";
+              text: string;
+              state?: string;
+            };
+            return (
+              <ThinkingIndicator
+                key={i}
+                text={reasoningPart.text}
+                isStreaming={reasoningPart.state === "streaming"}
+              />
             );
           }
 
