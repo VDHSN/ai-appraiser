@@ -1,6 +1,24 @@
 {
   "permissions": {
-    "allow": ["Bash(npm view:*)", "WebFetch(domain:www.liveauctioneers.com)"]
+    "allow": [
+      "Bash(pnpm view:*)",
+      "Bash(pnpm install)",
+      "Bash(pnpm run typecheck:*)",
+      "Bash(pnpm run lint)",
+      "Bash(pnpm run format)",
+      "Bash(pnpm test:*)",
+      "Bash(SKIP_INTEGRATION_TESTS=true pnpm test:*)",
+
+      "mcp__plugin_compound-engineering_Playwright__browser_network_requests",
+      "mcp__plugin_compound-engineering_Playwright__browser_navigate",
+      "mcp__plugin_compound-engineering_Playwright__browser_close",
+      "mcp__plugin_compound-engineering_Playwright__browser_click",
+      "mcp__plugin_compound-engineering_Playwright__browser_snapshot",
+      "mcp__plugin_compound-engineering_Playwright__browser_evaluate",
+
+      "WebFetch(domain:www.liveauctioneers.com)",
+      "WebFetch(domain:www.proxibid.com)"
+    ]
   },
   "hooks": {
     "PostToolUse": [
