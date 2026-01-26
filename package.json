@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint --fix --cache",
     "test": "vitest",
     "test:unit": "vitest --run --exclude='**/*.integration.test.ts'",
     "test:integration": "vitest --run --testNamePattern='Integration'",
@@ -17,7 +17,9 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
     "link:skills": "rm -rf .claude/skills && ln -s ../.agents/skills .claude/skills",
-    "prepare": "husky && pnpm run link:skills"
+    "link:commands": "rm -rf .claude/commands && ln -s ../.agents/commands .claude/commands",
+    "link:agents": "rm -rf .claude/agents && ln -s ../.agents/agents .claude/agents",
+    "prepare": "husky && pnpm run link:skills && pnpm run link:agents && pnpm run link:commands"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.10",
@@ -38,6 +40,7 @@
     "@tailwindcss/postcss": "^4",
     "@testing-library/react": "^16.3.0",
     "@types/dompurify": "^3.2.0",
+    "@types/jsdom": "^21.1.7",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
