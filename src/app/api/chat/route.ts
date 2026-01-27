@@ -4,8 +4,8 @@
  */
 
 import { streamText, UIMessage, convertToModelMessages, stepCountIs } from "ai";
-import { google } from "@ai-sdk/google";
 import { z } from "zod";
+import { getTracedModel } from "@/lib/analytics/llm";
 import { getToolSubset } from "@/lib/tools";
 import { getAgent, AgentIdSchema, getDefaultAgentId } from "@/lib/agent";
 
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
   const tools = getToolSubset(agent.toolIds);
 
   const result = streamText({
-    model: google(agent.model ?? "gemini-3-pro-preview"),
+    model: getTracedModel(agent.model ?? "gemini-3-pro-preview"),
     system: agent.systemPrompt,
     messages: await convertToModelMessages(messages as UIMessage[]),
     tools,
