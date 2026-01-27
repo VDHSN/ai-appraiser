@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AgentProvider } from "@/lib/agent";
 import "./globals.css";
@@ -29,6 +30,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AgentProvider>{children}</AgentProvider>
+        <Analytics />
       </body>
     </html>
   );
