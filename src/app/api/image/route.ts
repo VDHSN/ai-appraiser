@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 const ALLOWED_HOSTS = [
   "liveauctioneers.com",
-  // Add more auction platform hosts as needed
+  "proxibid.com",
+  "images.proxibid.com",
 ];
 
 export async function GET(req: NextRequest) {

@@ -6,3 +6,4 @@ export {
   type LiveAuctioneersConfig,
   type FetchFn,
 } from "./liveauctioneers";
+export { ProxiBidAdapter, type ProxiBidConfig } from "./proxibid";
