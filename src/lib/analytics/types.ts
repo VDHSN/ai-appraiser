@@ -52,6 +52,20 @@ export interface AnalyticsEvents {
     error?: string;
     source: "agent";
   };
+
+  // Chat message content tracking
+  chat_user_message: {
+    agent_id: string;
+    content: string;
+    message_length: number;
+  };
+  chat_agent_response: {
+    agent_id: string;
+    content: string;
+    response_length: number;
+    has_tool_calls: boolean;
+    tool_count: number;
+  };
 }
 
 // User properties for identify
@@ -74,6 +88,8 @@ export interface ClientAnalyticsEvents {
 export interface ServerAnalyticsEvents {
   adapter_search: AnalyticsEvents["adapter_search"];
   adapter_get_item: AnalyticsEvents["adapter_get_item"];
+  chat_user_message: AnalyticsEvents["chat_user_message"];
+  chat_agent_response: AnalyticsEvents["chat_agent_response"];
 }
 
 // Client analytics interface (browser only)
