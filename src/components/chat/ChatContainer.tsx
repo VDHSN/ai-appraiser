@@ -52,7 +52,7 @@ export function ChatContainer() {
               | { switched: boolean; targetAgent: AgentId }
               | undefined;
             if (result?.switched && result.targetAgent !== agentId) {
-              analytics.track("agent_switched", {
+              analytics.track("user:agent_switched", {
                 from_agent: agentId,
                 to_agent: result.targetAgent,
                 source: "agent",
@@ -71,11 +71,6 @@ export function ChatContainer() {
     if (!input.trim() || isLoading) return;
     const text = input;
     setInput("");
-    analytics.track("chat_message_sent", {
-      agent_id: agentId,
-      message_length: text.length,
-      source: "user",
-    });
     await sendMessage({ text });
   };
 

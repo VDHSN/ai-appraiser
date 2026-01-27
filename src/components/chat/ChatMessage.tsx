@@ -35,7 +35,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
         if (!trackedToolCalls.current.has(part.toolCallId)) {
           trackedToolCalls.current.add(part.toolCallId);
           const toolName = part.type.replace("tool-", "");
-          analytics.track("tool_called", {
+          analytics.track("agent:tool_called", {
             tool_name: toolName,
             tool_params: part.input,
             agent_id: agentId,

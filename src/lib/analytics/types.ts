@@ -8,34 +8,27 @@ export type EventSource = "user" | "agent";
 
 // All tracked events with their properties
 export interface AnalyticsEvents {
-  // User actions
-  chat_message_sent: {
-    agent_id: string;
-    message_length: number;
-    source: "user";
-  };
-  link_clicked: {
+  // Client events (user-initiated, no server context)
+  "user:link_clicked": {
     item_id: string;
     platform: string;
     url: string;
     source: "user";
   };
-  agent_switched: {
+  "user:agent_switched": {
     from_agent: string;
     to_agent: string;
     source: EventSource;
   };
-
-  // Agent actions
-  tool_called: {
+  "agent:tool_called": {
     tool_name: string;
     tool_params: unknown;
     agent_id: string;
     source: "agent";
   };
 
-  // Adapter performance
-  adapter_search: {
+  // Server events
+  "adapter:search": {
     platform: string;
     operation: "search" | "price_history";
     result_count: number;
@@ -44,7 +37,7 @@ export interface AnalyticsEvents {
     error?: string;
     source: "agent";
   };
-  adapter_get_item: {
+  "adapter:get_item": {
     platform: string;
     item_id: string;
     latency_ms: number;
@@ -52,14 +45,12 @@ export interface AnalyticsEvents {
     error?: string;
     source: "agent";
   };
-
-  // Chat message content tracking
-  chat_user_message: {
+  "chat:user_message": {
     agent_id: string;
     content: string;
     message_length: number;
   };
-  chat_agent_response: {
+  "chat:agent_response": {
     agent_id: string;
     content: string;
     response_length: number;
@@ -78,18 +69,17 @@ export interface UserProperties {
 
 // Client-only events (user-initiated)
 export interface ClientAnalyticsEvents {
-  chat_message_sent: AnalyticsEvents["chat_message_sent"];
-  link_clicked: AnalyticsEvents["link_clicked"];
-  agent_switched: AnalyticsEvents["agent_switched"];
-  tool_called: AnalyticsEvents["tool_called"];
+  "user:link_clicked": AnalyticsEvents["user:link_clicked"];
+  "user:agent_switched": AnalyticsEvents["user:agent_switched"];
+  "agent:tool_called": AnalyticsEvents["agent:tool_called"];
 }
 
 // Server-only events (agent/system-initiated)
 export interface ServerAnalyticsEvents {
-  adapter_search: AnalyticsEvents["adapter_search"];
-  adapter_get_item: AnalyticsEvents["adapter_get_item"];
-  chat_user_message: AnalyticsEvents["chat_user_message"];
-  chat_agent_response: AnalyticsEvents["chat_agent_response"];
+  "adapter:search": AnalyticsEvents["adapter:search"];
+  "adapter:get_item": AnalyticsEvents["adapter:get_item"];
+  "chat:user_message": AnalyticsEvents["chat:user_message"];
+  "chat:agent_response": AnalyticsEvents["chat:agent_response"];
 }
 
 // Client analytics interface (browser only)

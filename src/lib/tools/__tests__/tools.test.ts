@@ -166,9 +166,9 @@ describe("searchItems", () => {
     });
 
     const mock = serverAnalytics as MockServerAnalytics;
-    expect(mock.hasEvent("adapter_search")).toBe(true);
+    expect(mock.hasEvent("adapter:search")).toBe(true);
     expect(
-      mock.events.filter((e) => e.event === "adapter_search"),
+      mock.events.filter((e) => e.event === "adapter:search"),
     ).toHaveLength(2);
   });
 });
@@ -204,8 +204,8 @@ describe("getItemDetails", () => {
     });
 
     const mock = serverAnalytics as MockServerAnalytics;
-    expect(mock.hasEvent("adapter_get_item")).toBe(true);
-    expect(mock.findEvent("adapter_get_item")?.properties).toMatchObject({
+    expect(mock.hasEvent("adapter:get_item")).toBe(true);
+    expect(mock.findEvent("adapter:get_item")?.properties).toMatchObject({
       platform: "liveauctioneers",
       item_id: "12345",
       success: true,

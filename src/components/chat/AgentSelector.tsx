@@ -20,7 +20,7 @@ export function AgentSelector() {
             key={agent.id}
             onClick={() => {
               if (agent.id !== agentId) {
-                analytics.track("agent_switched", {
+                analytics.track("user:agent_switched", {
                   from_agent: agentId,
                   to_agent: agent.id,
                   source: "user",

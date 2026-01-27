@@ -45,7 +45,7 @@ async function searchAllAdapters<T>(
       } finally {
         const latencyMs = Math.round(performance.now() - startTime);
 
-        serverAnalytics.track("adapter_search", {
+        serverAnalytics.track("adapter:search", {
           platform,
           operation: operationType,
           result_count: resultCount,
@@ -173,7 +173,7 @@ export const tools = {
       } finally {
         const latencyMs = Math.round(performance.now() - startTime);
 
-        serverAnalytics.track("adapter_get_item", {
+        serverAnalytics.track("adapter:get_item", {
           platform,
           item_id: itemId,
           latency_ms: latencyMs,

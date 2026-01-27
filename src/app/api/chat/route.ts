@@ -43,7 +43,7 @@ export async function POST(req: Request) {
   );
   if (lastUserMessage) {
     const content = extractTextContent(lastUserMessage);
-    serverAnalytics.track("chat_user_message", {
+    serverAnalytics.track("chat:user_message", {
       agent_id: agentId,
       content,
       message_length: content.length,
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
     tools,
     stopWhen: stepCountIs(agent.maxSteps ?? 7),
     onFinish: ({ text, toolCalls }) => {
-      serverAnalytics.track("chat_agent_response", {
+      serverAnalytics.track("chat:agent_response", {
         agent_id: agentId,
         content: text,
         response_length: text.length,

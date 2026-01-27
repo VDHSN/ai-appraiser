@@ -33,7 +33,7 @@ export function ItemCard({ item, onSelect }: ItemCardProps) {
   const timeRemaining = formatTimeRemaining(item.endTime);
 
   const handleClick = () => {
-    analytics.track("link_clicked", {
+    analytics.track("user:link_clicked", {
       item_id: item.itemId,
       platform: item.platform,
       url: item.url,
