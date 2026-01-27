@@ -5,8 +5,37 @@
 
 import { z } from "zod";
 import { getAdapter, listPlatforms } from "@/lib/adapters/registry";
-import type { SearchResult, UnifiedItem } from "@/lib/adapters/types";
+import type {
+  PlatformAdapter,
+  SearchResult,
+  UnifiedItem,
+} from "@/lib/adapters/types";
 import type { ToolName } from "@/lib/agent/types";
+
+/**
+ * Execute search across multiple adapters in parallel.
+ * Returns merged results from all platforms.
+ */
+async function searchAllAdapters<T>(
+  platforms: string[] | undefined,
+  searchFn: (adapter: PlatformAdapter) => Promise<T[]>,
+): Promise<T[]> {
+  const targetPlatforms = platforms?.length ? platforms : listPlatforms();
+
+  const results = await Promise.all(
+    targetPlatforms.map(async (platform) => {
+      try {
+        const adapter = getAdapter(platform);
+        return await searchFn(adapter);
+      } catch (error) {
+        console.warn(`Search failed for ${platform}:`, error);
+        return []; // Don't fail entire search if one adapter fails
+      }
+    }),
+  );
+
+  return results.flat();
+}
 
 /**
  * Valuation assessment result shape.
@@ -56,25 +85,34 @@ export const tools = {
         .max(50)
         .default(12)
         .describe("Number of results to return"),
+      platforms: z
+        .array(z.string())
+        .optional()
+        .describe(
+          `Filter to specific platforms. Available: ${listPlatforms().join(", ")}. Omit to search all.`,
+        ),
     }),
     execute: async ({
       keywords,
       category,
       priceRange,
       pageSize,
+      platforms,
     }: {
       keywords: string;
       category?: string;
       priceRange?: { min?: number; max?: number };
       pageSize: number;
+      platforms?: string[];
     }): Promise<SearchResult[]> => {
-      const adapter = getAdapter("liveauctioneers");
-      return adapter.search({
-        keywords,
-        category,
-        priceRange,
-        pageSize,
-      });
+      return searchAllAdapters(platforms, (adapter) =>
+        adapter.search({
+          keywords,
+          category,
+          priceRange,
+          pageSize,
+        }),
+      );
     },
   },
 
@@ -121,25 +159,34 @@ export const tools = {
         .max(50)
         .default(12)
         .describe("Number of comparables to return"),
+      platforms: z
+        .array(z.string())
+        .optional()
+        .describe(
+          `Filter to specific platforms. Available: ${listPlatforms().join(", ")}. Omit to search all.`,
+        ),
     }),
     execute: async ({
       keywords,
       category,
       priceRange,
       pageSize,
+      platforms,
     }: {
       keywords: string;
       category?: string;
       priceRange?: { min?: number; max?: number };
       pageSize: number;
+      platforms?: string[];
     }): Promise<SearchResult[]> => {
-      const adapter = getAdapter("liveauctioneers");
-      return adapter.getPriceHistory({
-        keywords,
-        category,
-        priceRange,
-        pageSize,
-      });
+      return searchAllAdapters(platforms, (adapter) =>
+        adapter.getPriceHistory({
+          keywords,
+          category,
+          priceRange,
+          pageSize,
+        }),
+      );
     },
   },
 
