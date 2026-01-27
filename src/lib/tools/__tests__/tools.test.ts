@@ -1,11 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { MockServerAnalytics } from "@/lib/analytics";
 
-// Mock PostHog before importing tools
-vi.mock("posthog-node", () => ({
-  PostHog: vi.fn().mockImplementation(() => ({
-    capture: vi.fn(),
-    shutdown: vi.fn(),
-  })),
+// Mock the server analytics module
+vi.mock("@/lib/analytics/server", () => ({
+  serverAnalytics: new MockServerAnalytics(),
 }));
 
 import {
@@ -23,6 +21,7 @@ vi.mock("@/lib/adapters/registry", () => ({
 }));
 
 import { getAdapter } from "@/lib/adapters/registry";
+import { serverAnalytics } from "@/lib/analytics/server";
 
 const mockLiveAuctioneersAdapter = {
   platform: "liveauctioneers",
@@ -40,6 +39,7 @@ const mockProxiBidAdapter = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  (serverAnalytics as MockServerAnalytics).clear();
   vi.mocked(getAdapter).mockImplementation((platform: string) => {
     if (platform === "liveauctioneers") return mockLiveAuctioneersAdapter;
     if (platform === "proxibid") return mockProxiBidAdapter;
@@ -155,6 +155,22 @@ describe("searchItems", () => {
     );
     expect(mockProxiBidAdapter.search).toHaveBeenCalledWith(expectedQuery);
   });
+
+  it("tracks adapter_search events", async () => {
+    mockLiveAuctioneersAdapter.search.mockResolvedValue([{ itemId: "1" }]);
+    mockProxiBidAdapter.search.mockResolvedValue([]);
+
+    await searchItems.execute({
+      keywords: "test",
+      pageSize: 12,
+    });
+
+    const mock = serverAnalytics as MockServerAnalytics;
+    expect(mock.hasEvent("adapter_search")).toBe(true);
+    expect(
+      mock.events.filter((e) => e.event === "adapter_search"),
+    ).toHaveLength(2);
+  });
 });
 
 // --- getItemDetails Tool ---
@@ -176,6 +192,24 @@ describe("getItemDetails", () => {
     expect(getAdapter).toHaveBeenCalledWith("liveauctioneers");
     expect(mockLiveAuctioneersAdapter.getItem).toHaveBeenCalledWith("12345");
     expect(result).toEqual(mockItem);
+  });
+
+  it("tracks adapter_get_item event", async () => {
+    const mockItem = { id: "la-123", title: "Test Item" };
+    mockLiveAuctioneersAdapter.getItem.mockResolvedValue(mockItem);
+
+    await getItemDetails.execute({
+      platform: "liveauctioneers",
+      itemId: "12345",
+    });
+
+    const mock = serverAnalytics as MockServerAnalytics;
+    expect(mock.hasEvent("adapter_get_item")).toBe(true);
+    expect(mock.findEvent("adapter_get_item")?.properties).toMatchObject({
+      platform: "liveauctioneers",
+      item_id: "12345",
+      success: true,
+    });
   });
 });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import posthog from "posthog-js";
+import { analytics } from "@/lib/analytics";
 import type { UnifiedItem } from "@/lib/adapters/types";
 import { Badge } from "@/components/ui/Badge";
 import { Price, PriceRange } from "@/components/ui/Price";
@@ -123,7 +123,7 @@ export function ItemDetail({ item }: ItemDetailProps) {
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => {
-              posthog.capture("link_clicked", {
+              analytics.track("link_clicked", {
                 item_id: item.id,
                 platform: item.platform,
                 url: item.url,

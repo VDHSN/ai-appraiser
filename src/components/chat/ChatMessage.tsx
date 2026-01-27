@@ -1,9 +1,9 @@
 "use client";
 
 import type { UIMessage } from "ai";
-import posthog from "posthog-js";
 import { useEffect, useRef } from "react";
 import { Streamdown } from "streamdown";
+import { analytics } from "@/lib/analytics";
 import { ToolInvocation } from "./ToolInvocation";
 import { ThinkingIndicator } from "./ThinkingIndicator";
 import { useAgent } from "@/lib/agent";
@@ -35,7 +35,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
         if (!trackedToolCalls.current.has(part.toolCallId)) {
           trackedToolCalls.current.add(part.toolCallId);
           const toolName = part.type.replace("tool-", "");
-          posthog.capture("tool_called", {
+          analytics.track("tool_called", {
             tool_name: toolName,
             tool_params: part.input,
             agent_id: agentId,

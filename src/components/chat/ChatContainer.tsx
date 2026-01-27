@@ -2,8 +2,8 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import posthog from "posthog-js";
 import { useEffect, useRef, useState, FormEvent, useMemo } from "react";
+import { analytics } from "@/lib/analytics";
 import { ChatInput } from "./ChatInput";
 import { ChatMessage } from "./ChatMessage";
 import { AgentSelector } from "./AgentSelector";
@@ -52,7 +52,7 @@ export function ChatContainer() {
               | { switched: boolean; targetAgent: AgentId }
               | undefined;
             if (result?.switched && result.targetAgent !== agentId) {
-              posthog.capture("agent_switched", {
+              analytics.track("agent_switched", {
                 from_agent: agentId,
                 to_agent: result.targetAgent,
                 source: "agent",
@@ -71,7 +71,7 @@ export function ChatContainer() {
     if (!input.trim() || isLoading) return;
     const text = input;
     setInput("");
-    posthog.capture("chat_message_sent", {
+    analytics.track("chat_message_sent", {
       agent_id: agentId,
       message_length: text.length,
       source: "user",

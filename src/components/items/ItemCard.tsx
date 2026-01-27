@@ -1,7 +1,7 @@
 "use client";
 
-import posthog from "posthog-js";
 import { useState } from "react";
+import { analytics } from "@/lib/analytics";
 import type { SearchResult } from "@/lib/adapters/types";
 import { Badge } from "@/components/ui/Badge";
 import { Price } from "@/components/ui/Price";
@@ -33,7 +33,7 @@ export function ItemCard({ item, onSelect }: ItemCardProps) {
   const timeRemaining = formatTimeRemaining(item.endTime);
 
   const handleClick = () => {
-    posthog.capture("link_clicked", {
+    analytics.track("link_clicked", {
       item_id: item.itemId,
       platform: item.platform,
       url: item.url,

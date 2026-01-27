@@ -4,7 +4,7 @@
  */
 
 import { z } from "zod";
-import { PostHog } from "posthog-node";
+import { serverAnalytics } from "@/lib/analytics/server";
 import { getAdapter, listPlatforms } from "@/lib/adapters/registry";
 import type {
   PlatformAdapter,
@@ -12,13 +12,6 @@ import type {
   UnifiedItem,
 } from "@/lib/adapters/types";
 import type { ToolName } from "@/lib/agent/types";
-
-// Server-side PostHog client for tracking adapter performance
-const posthog = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_KEY ?? "", {
-  host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
-  flushAt: 1, // Flush immediately for real-time tracking
-  flushInterval: 0,
-});
 
 /**
  * Execute search across multiple adapters in parallel.
@@ -52,18 +45,14 @@ async function searchAllAdapters<T>(
       } finally {
         const latencyMs = Math.round(performance.now() - startTime);
 
-        posthog.capture({
-          distinctId: "server",
-          event: "adapter_search",
-          properties: {
-            platform,
-            operation: operationType,
-            result_count: resultCount,
-            latency_ms: latencyMs,
-            success,
-            error: errorMessage,
-            source: "agent",
-          },
+        serverAnalytics.track("adapter_search", {
+          platform,
+          operation: operationType,
+          result_count: resultCount,
+          latency_ms: latencyMs,
+          success,
+          error: errorMessage,
+          source: "agent",
         });
       }
     }),
@@ -184,17 +173,13 @@ export const tools = {
       } finally {
         const latencyMs = Math.round(performance.now() - startTime);
 
-        posthog.capture({
-          distinctId: "server",
-          event: "adapter_get_item",
-          properties: {
-            platform,
-            item_id: itemId,
-            latency_ms: latencyMs,
-            success,
-            error: errorMessage,
-            source: "agent",
-          },
+        serverAnalytics.track("adapter_get_item", {
+          platform,
+          item_id: itemId,
+          latency_ms: latencyMs,
+          success,
+          error: errorMessage,
+          source: "agent",
         });
       }
     },

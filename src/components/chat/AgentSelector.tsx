@@ -4,7 +4,7 @@
  * Tab-style selector for switching between agent modes.
  */
 
-import posthog from "posthog-js";
+import { analytics } from "@/lib/analytics";
 import { useAgent, listAgents } from "@/lib/agent";
 
 export function AgentSelector() {
@@ -20,7 +20,7 @@ export function AgentSelector() {
             key={agent.id}
             onClick={() => {
               if (agent.id !== agentId) {
-                posthog.capture("agent_switched", {
+                analytics.track("agent_switched", {
                   from_agent: agentId,
                   to_agent: agent.id,
                   source: "user",
