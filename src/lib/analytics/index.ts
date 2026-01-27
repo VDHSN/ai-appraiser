@@ -25,6 +25,3 @@ export {
   mockClientAnalytics,
   mockServerAnalytics,
 } from "./mock";
-
-// LLM tracing
-export { getTracedModel, getMockTracedModel } from "./llm";
