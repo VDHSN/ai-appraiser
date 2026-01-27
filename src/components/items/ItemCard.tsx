@@ -1,5 +1,6 @@
 "use client";
 
+import posthog from "posthog-js";
 import { useState } from "react";
 import type { SearchResult } from "@/lib/adapters/types";
 import { Badge } from "@/components/ui/Badge";
@@ -32,6 +33,12 @@ export function ItemCard({ item, onSelect }: ItemCardProps) {
   const timeRemaining = formatTimeRemaining(item.endTime);
 
   const handleClick = () => {
+    posthog.capture("link_clicked", {
+      item_id: item.itemId,
+      platform: item.platform,
+      url: item.url,
+      source: "user",
+    });
     if (item.url) {
       window.open(item.url, "_blank", "noopener,noreferrer");
     }
