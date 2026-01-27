@@ -4,6 +4,7 @@
  */
 
 import { z } from "zod";
+import { PostHog } from "posthog-node";
 import { getAdapter, listPlatforms } from "@/lib/adapters/registry";
 import type {
   PlatformAdapter,
@@ -12,24 +13,58 @@ import type {
 } from "@/lib/adapters/types";
 import type { ToolName } from "@/lib/agent/types";
 
+// Server-side PostHog client for tracking adapter performance
+const posthog = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_KEY ?? "", {
+  host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+  flushAt: 1, // Flush immediately for real-time tracking
+  flushInterval: 0,
+});
+
 /**
  * Execute search across multiple adapters in parallel.
  * Returns merged results from all platforms.
+ * Tracks performance metrics for each adapter.
  */
 async function searchAllAdapters<T>(
   platforms: string[] | undefined,
   searchFn: (adapter: PlatformAdapter) => Promise<T[]>,
+  operationType: "search" | "price_history",
 ): Promise<T[]> {
   const targetPlatforms = platforms?.length ? platforms : listPlatforms();
 
   const results = await Promise.all(
     targetPlatforms.map(async (platform) => {
+      const startTime = performance.now();
+      let resultCount = 0;
+      let success = true;
+      let errorMessage: string | undefined;
+
       try {
         const adapter = getAdapter(platform);
-        return await searchFn(adapter);
+        const adapterResults = await searchFn(adapter);
+        resultCount = adapterResults.length;
+        return adapterResults;
       } catch (error) {
+        success = false;
+        errorMessage = error instanceof Error ? error.message : String(error);
         console.warn(`Search failed for ${platform}:`, error);
         return []; // Don't fail entire search if one adapter fails
+      } finally {
+        const latencyMs = Math.round(performance.now() - startTime);
+
+        posthog.capture({
+          distinctId: "server",
+          event: "adapter_search",
+          properties: {
+            platform,
+            operation: operationType,
+            result_count: resultCount,
+            latency_ms: latencyMs,
+            success,
+            error: errorMessage,
+            source: "agent",
+          },
+        });
       }
     }),
   );
@@ -105,13 +140,16 @@ export const tools = {
       pageSize: number;
       platforms?: string[];
     }): Promise<SearchResult[]> => {
-      return searchAllAdapters(platforms, (adapter) =>
-        adapter.search({
-          keywords,
-          category,
-          priceRange,
-          pageSize,
-        }),
+      return searchAllAdapters(
+        platforms,
+        (adapter) =>
+          adapter.search({
+            keywords,
+            category,
+            priceRange,
+            pageSize,
+          }),
+        "search",
       );
     },
   },
@@ -132,8 +170,33 @@ export const tools = {
       platform: string;
       itemId: string;
     }): Promise<UnifiedItem> => {
-      const adapter = getAdapter(platform);
-      return adapter.getItem(itemId);
+      const startTime = performance.now();
+      let success = true;
+      let errorMessage: string | undefined;
+
+      try {
+        const adapter = getAdapter(platform);
+        return await adapter.getItem(itemId);
+      } catch (error) {
+        success = false;
+        errorMessage = error instanceof Error ? error.message : String(error);
+        throw error;
+      } finally {
+        const latencyMs = Math.round(performance.now() - startTime);
+
+        posthog.capture({
+          distinctId: "server",
+          event: "adapter_get_item",
+          properties: {
+            platform,
+            item_id: itemId,
+            latency_ms: latencyMs,
+            success,
+            error: errorMessage,
+            source: "agent",
+          },
+        });
+      }
     },
   },
 
@@ -179,13 +242,16 @@ export const tools = {
       pageSize: number;
       platforms?: string[];
     }): Promise<SearchResult[]> => {
-      return searchAllAdapters(platforms, (adapter) =>
-        adapter.getPriceHistory({
-          keywords,
-          category,
-          priceRange,
-          pageSize,
-        }),
+      return searchAllAdapters(
+        platforms,
+        (adapter) =>
+          adapter.getPriceHistory({
+            keywords,
+            category,
+            priceRange,
+            pageSize,
+          }),
+        "price_history",
       );
     },
   },

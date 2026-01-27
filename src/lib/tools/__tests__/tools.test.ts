@@ -1,4 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+
+// Mock PostHog before importing tools
+vi.mock("posthog-node", () => ({
+  PostHog: vi.fn().mockImplementation(() => ({
+    capture: vi.fn(),
+    shutdown: vi.fn(),
+  })),
+}));
+
 import {
   searchItems,
   getItemDetails,
