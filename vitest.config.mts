@@ -11,7 +11,7 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./vitest.setup.mts"],
-    exclude: ["**/node_modules/**", "**/.worktrees/**"],
+    exclude: ["**/node_modules/**", "**/.worktrees/**", "**/e2e/**"],
   },
   resolve: {
     alias: {
