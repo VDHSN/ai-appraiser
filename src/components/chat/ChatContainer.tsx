@@ -7,6 +7,7 @@ import { analytics } from "@/lib/analytics";
 import { ChatInput } from "./ChatInput";
 import { ChatMessage } from "./ChatMessage";
 import { AgentSelector } from "./AgentSelector";
+import { UserMenu } from "@/components/auth";
 import { useAgent } from "@/lib/agent";
 import type { AgentId } from "@/lib/agent";
 
@@ -82,8 +83,11 @@ export function ChatContainer() {
   return (
     <div className="flex h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
       <header className="border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="mx-auto max-w-3xl space-y-3">
-          <AgentSelector />
+        <div className="mx-auto max-w-3xl">
+          <div className="flex items-center justify-between">
+            <AgentSelector />
+            <UserMenu />
+          </div>
         </div>
       </header>
 
