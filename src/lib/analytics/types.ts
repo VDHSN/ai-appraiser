@@ -6,6 +6,9 @@
 // Event source attribution
 export type EventSource = "user" | "agent";
 
+// Auth source attribution
+export type AuthSource = "header" | "agent_prompt";
+
 // All tracked events with their properties
 export interface AnalyticsEvents {
   // Client events (user-initiated, no server context)
@@ -26,6 +29,12 @@ export interface AnalyticsEvents {
     agent_id: string;
     source: "agent";
   };
+
+  // Auth client events
+  "auth:sign_in_clicked": { source: AuthSource };
+  "auth:sign_up_clicked": { source: AuthSource };
+  "auth:prompt_shown": { agent_id: string; source: "agent" };
+  "auth:prompt_dismissed": { source: "agent_prompt" };
 
   // Server events
   "adapter:search": {
@@ -57,6 +66,11 @@ export interface AnalyticsEvents {
     has_tool_calls: boolean;
     tool_count: number;
   };
+
+  // Auth server events (from Clerk webhooks)
+  "auth:sign_up": { user_id: string; method: string; source: string };
+  "auth:sign_in": { user_id: string; source?: string };
+  "auth:sign_out": { user_id: string };
 }
 
 // User properties for identify
@@ -72,6 +86,10 @@ export interface ClientAnalyticsEvents {
   "user:link_clicked": AnalyticsEvents["user:link_clicked"];
   "user:agent_switched": AnalyticsEvents["user:agent_switched"];
   "agent:tool_called": AnalyticsEvents["agent:tool_called"];
+  "auth:sign_in_clicked": AnalyticsEvents["auth:sign_in_clicked"];
+  "auth:sign_up_clicked": AnalyticsEvents["auth:sign_up_clicked"];
+  "auth:prompt_shown": AnalyticsEvents["auth:prompt_shown"];
+  "auth:prompt_dismissed": AnalyticsEvents["auth:prompt_dismissed"];
 }
 
 // Server-only events (agent/system-initiated)
@@ -80,6 +98,9 @@ export interface ServerAnalyticsEvents {
   "adapter:get_item": AnalyticsEvents["adapter:get_item"];
   "chat:user_message": AnalyticsEvents["chat:user_message"];
   "chat:agent_response": AnalyticsEvents["chat:agent_response"];
+  "auth:sign_up": AnalyticsEvents["auth:sign_up"];
+  "auth:sign_in": AnalyticsEvents["auth:sign_in"];
+  "auth:sign_out": AnalyticsEvents["auth:sign_out"];
 }
 
 // Client analytics interface (browser only)

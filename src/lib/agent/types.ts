@@ -12,7 +12,8 @@ export type ToolName =
   | "getItemDetails"
   | "getPriceHistory"
   | "assessValue"
-  | "switchAgentMode";
+  | "switchAgentMode"
+  | "promptSignIn";
 
 export interface AgentPlaceholder {
   text: string;
