@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  env: {
+    NEXT_PUBLIC_CI: process.env.CI ?? "",
+  },
 };
 
 const isCI = Boolean(process.env.CI || process.env.VERCEL_ENV);

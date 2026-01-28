@@ -1,4 +1,5 @@
 pnpm lint --fix
 pnpm format
+git add -u
 pnpm tsc --noEmit
 pnpm test:unit
