@@ -1,9 +1,20 @@
 import { test, expect } from "@playwright/test";
 
+// Skip chat response test in CI - requires API key
+const isCI = !!process.env.CI;
+
 test.describe("Smoke Tests", () => {
+  // Block PostHog analytics requests to prevent interference with tests
+  test.beforeEach(async ({ page }) => {
+    await page.route("**/*posthog*/**", (route) => route.abort());
+    await page.route("**/*.posthog.com/**", (route) => route.abort());
+  });
+
   test("chat response test - send message and verify assistant responds", async ({
     page,
   }) => {
+    test.skip(isCI, "Requires API key not available in CI");
+
     await page.goto("/");
 
     // Find the chat input and send a message
