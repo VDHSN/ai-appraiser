@@ -81,18 +81,18 @@ export function ChatContainer() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
-      <header className="border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="mx-auto max-w-3xl">
-          <div className="flex items-center justify-between">
+    <div className="flex h-screen-dynamic flex-col bg-zinc-50 dark:bg-zinc-950">
+      <header className="safe-area-inset-top border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950 sm:px-6">
+        <div className="mx-auto max-w-3xl safe-area-inset-x">
+          <div className="flex items-center justify-between gap-3">
             <AgentSelector />
             <UserMenu />
           </div>
         </div>
       </header>
 
-      <main className="scrollbar-thin flex-1 overflow-y-auto px-4 py-6">
-        <div className="mx-auto max-w-3xl space-y-6">
+      <main className="scrollbar-thin flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
+        <div className="mx-auto max-w-3xl space-y-4 safe-area-inset-x sm:space-y-6">
           {messages.length === 0 && (
             <div className="py-12 text-center">
               <p className="text-zinc-500 dark:text-zinc-400">

@@ -42,7 +42,6 @@ next-env.d.ts
 
 # claude code
 .claude/settings.local.json
-.claude/settings.json
 .claude/agents
 .claude/commands
 
@@ -51,3 +50,6 @@ next-env.d.ts
 
 # eslint
 .eslintcache
+
+# node compile cache
+node-compile-cache/

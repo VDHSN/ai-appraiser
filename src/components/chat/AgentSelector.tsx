@@ -12,7 +12,7 @@ export function AgentSelector() {
   const agents = listAgents();
 
   return (
-    <div className="flex rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
+    <div className="flex min-w-0 flex-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800 sm:flex-initial">
       {agents.map((agent) => {
         const isActive = agent.id === agentId;
         return (
@@ -28,14 +28,14 @@ export function AgentSelector() {
               }
               setAgentId(agent.id);
             }}
-            className={`flex-1 rounded-md px-3 py-2 text-left transition-all ${
+            className={`min-w-0 flex-1 rounded-md px-2 py-2 text-left transition-all sm:px-3 ${
               isActive
                 ? "bg-white shadow-sm dark:bg-zinc-900"
                 : "hover:bg-zinc-200 dark:hover:bg-zinc-700"
             }`}
           >
             <p
-              className={`text-sm font-medium ${
+              className={`truncate text-sm font-medium ${
                 isActive
                   ? "text-zinc-900 dark:text-zinc-100"
                   : "text-zinc-600 dark:text-zinc-400"
@@ -44,7 +44,7 @@ export function AgentSelector() {
               {agent.name}
             </p>
             <p
-              className={`text-xs ${
+              className={`hidden truncate text-xs sm:block ${
                 isActive
                   ? "text-zinc-500 dark:text-zinc-400"
                   : "text-zinc-400 dark:text-zinc-500"
