@@ -53,3 +53,12 @@ next-env.d.ts
 
 # node compile cache
 node-compile-cache/
+
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# clerk configuration (can include secrets)
+/.clerk/
