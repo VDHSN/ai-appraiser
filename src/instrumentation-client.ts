@@ -1,9 +1,7 @@
 import { analytics } from "@/lib/analytics";
 
-// Skip PostHog initialization in CI or when no key is configured
-const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-if (posthogKey && process.env.NODE_ENV !== "test") {
-  analytics.init(posthogKey, {
+if (!process.env.NEXT_PUBLIC_CI) {
+  analytics.init(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
     host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
   });
 }

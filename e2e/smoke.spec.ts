@@ -4,11 +4,7 @@ test.describe("Smoke Tests", () => {
   test("chat response test - send message and verify assistant responds", async ({
     page,
   }) => {
-    // Skip if no API key is configured (e.g., in CI without secrets)
-    test.skip(
-      !process.env.ANTHROPIC_API_KEY && !process.env.OPENAI_API_KEY,
-      "Requires API key",
-    );
+    test.skip(!!process.env.CI, "Requires API key not available in CI");
 
     await page.goto("/");
 
