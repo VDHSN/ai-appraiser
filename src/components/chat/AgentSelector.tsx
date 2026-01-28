@@ -18,6 +18,8 @@ export function AgentSelector() {
         return (
           <button
             key={agent.id}
+            data-testid={`agent-button-${agent.id}`}
+            data-active={isActive}
             onClick={() => {
               if (agent.id !== agentId) {
                 analytics.track("user:agent_switched", {

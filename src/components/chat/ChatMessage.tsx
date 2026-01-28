@@ -47,7 +47,10 @@ export function ChatMessage({ message }: ChatMessageProps) {
   }, [message.parts, agentId]);
 
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+    <div
+      data-testid={`chat-message-${message.role}`}
+      className={`flex ${isUser ? "justify-end" : "justify-start"}`}
+    >
       <div
         className={`max-w-[92%] space-y-3 sm:max-w-[85%] ${
           isUser
