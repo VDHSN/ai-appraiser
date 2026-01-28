@@ -1,0 +1,165 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+      issues: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get last release tag
+        id: last_release
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          echo "tag=$LAST_TAG" >> $GITHUB_OUTPUT
+          if [ -z "$LAST_TAG" ]; then
+            echo "No previous release found, will include all commits"
+            COMMIT_RANGE="HEAD"
+          else
+            COMMIT_RANGE="${LAST_TAG}..HEAD"
+          fi
+          echo "range=$COMMIT_RANGE" >> $GITHUB_OUTPUT
+
+      - name: Get commit history
+        id: commits
+        run: |
+          if [ -z "${{ steps.last_release.outputs.tag }}" ]; then
+            COMMITS=$(git log --pretty=format:"- %s (%h)" HEAD)
+          else
+            COMMITS=$(git log --pretty=format:"- %s (%h)" ${{ steps.last_release.outputs.range }})
+          fi
+          # Save to file in workspace for Claude to read
+          echo "$COMMITS" > ${{ github.workspace }}/commits.txt
+          echo "count=$(echo "$COMMITS" | wc -l)" >> $GITHUB_OUTPUT
+
+      - name: Generate version tag
+        id: version
+        run: |
+          TODAY=$(date +%Y.%m.%d)
+          BASE_TAG="v${TODAY}"
+
+          # Check if a tag for today already exists
+          EXISTING_TAGS=$(git tag -l "${BASE_TAG}*" | sort -V)
+
+          if [ -z "$EXISTING_TAGS" ]; then
+            NEW_TAG="$BASE_TAG"
+          else
+            # Find the highest suffix for today
+            LAST_TODAY_TAG=$(echo "$EXISTING_TAGS" | tail -1)
+            if [ "$LAST_TODAY_TAG" = "$BASE_TAG" ]; then
+              NEW_TAG="${BASE_TAG}.1"
+            else
+              # Extract suffix and increment
+              SUFFIX=$(echo "$LAST_TODAY_TAG" | sed "s/${BASE_TAG}\.//")
+              NEW_SUFFIX=$((SUFFIX + 1))
+              NEW_TAG="${BASE_TAG}.${NEW_SUFFIX}"
+            fi
+          fi
+
+          echo "tag=$NEW_TAG" >> $GITHUB_OUTPUT
+          echo "Generated version: $NEW_TAG"
+
+      - name: Generate release notes with Claude
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Generate release notes for version ${{ steps.version.outputs.tag }}.
+
+            1. Read the file "commits.txt" in the current directory to get the list of commits.
+
+            2. Analyze each commit and categorize them into sections.
+
+            3. Write the release notes to a file called "release-notes.md" with exactly these sections (include all sections even if empty):
+
+            ## Features
+            [List new features, enhancements, or new capabilities. Look for commits with "feat", "add", "new", "implement", "support" keywords]
+
+            ## Fixes
+            [List bug fixes, corrections, or resolved issues. Look for commits with "fix", "bug", "patch", "resolve", "correct" keywords]
+
+            ## Deprecations
+            [List deprecated features, removed functionality, or breaking changes. Look for commits with "deprecate", "remove", "delete", "breaking" keywords]
+
+            ## Miscellaneous
+            [List all other changes that don't fit above: refactoring, docs, tests, dependencies, chores, etc.]
+
+            Format rules:
+            - Use bullet points for each item
+            - Keep descriptions concise but informative
+            - Include the commit hash in parentheses
+            - If a section has no items, write "No changes in this category."
+            - Do NOT include any text before the first ## heading
+            - Do NOT include any explanatory text after the sections
+
+            Write ONLY the release notes markdown to "release-notes.md", nothing else.
+
+      - name: Read release notes
+        id: release_notes
+        run: |
+          if [ -f "release-notes.md" ]; then
+            NOTES=$(cat release-notes.md)
+          else
+            NOTES="No release notes generated."
+          fi
+          # Use delimiter for multi-line output
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let releaseNotes = 'No release notes generated.';
+            try {
+              releaseNotes = fs.readFileSync('release-notes.md', 'utf8');
+            } catch (e) {
+              console.log('Could not read release-notes.md:', e.message);
+            }
+
+            const release = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: '${{ steps.version.outputs.tag }}',
+              name: 'Release ${{ steps.version.outputs.tag }}',
+              body: releaseNotes,
+              draft: false,
+              prerelease: false
+            });
+
+            core.setOutput('release_url', release.data.html_url);
+            return release.data.html_url;
+
+      - name: Post to Keybase
+        run: |
+          RELEASE_URL="${{ steps.create_release.outputs.release_url }}"
+          VERSION="${{ steps.version.outputs.tag }}"
+          NOTES="${{ steps.release_notes.outputs.notes }}"
+
+          # Create message for Keybase
+          MESSAGE="*New Release: ${VERSION}*
+
+          ${NOTES}
+
+          View release: ${RELEASE_URL}"
+
+          # Post to Keybase webhook
+          curl -X POST "${{ secrets.KEYBASE_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg msg "$MESSAGE" '{msg: $msg}')"
