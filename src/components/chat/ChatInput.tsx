@@ -41,7 +41,7 @@ export function ChatInput({
       onSubmit={onSubmit}
       className="safe-area-inset-bottom border-t border-zinc-200 bg-white pb-4 pt-3 dark:border-zinc-800 dark:bg-zinc-950 sm:pb-5 sm:pt-4"
     >
-      <div className="mx-auto flex max-w-3xl gap-2 px-3 safe-area-inset-x sm:gap-3 sm:px-4">
+      <div className="mx-auto flex max-w-3xl gap-2 px-4 safe-area-inset-x sm:gap-3 sm:px-6">
         <textarea
           ref={textareaRef}
           value={value}
