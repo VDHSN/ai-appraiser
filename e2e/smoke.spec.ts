@@ -4,8 +4,6 @@ test.describe("Smoke Tests", () => {
   test("chat response test - send message and verify assistant responds", async ({
     page,
   }) => {
-    test.skip(!!process.env.CI, "Requires API key not available in CI");
-
     await page.goto("/");
 
     // Find the chat input and send a message
