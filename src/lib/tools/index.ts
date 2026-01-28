@@ -83,6 +83,14 @@ interface ModeSwitchResult {
 }
 
 /**
+ * Sign-in prompt result shape.
+ */
+interface SignInPromptResult {
+  showPrompt: boolean;
+  message?: string;
+}
+
+/**
  * All tools exported for use in the chat endpoint.
  * Using inline tool definitions as per AI SDK v6 patterns.
  */
@@ -341,6 +349,24 @@ export const tools = {
       return { switched: true, targetAgent, reason };
     },
   },
+
+  promptSignIn: {
+    description:
+      "Prompt the user to sign in or create an account. Use this after your first response to encourage users to save their session. Only use once per conversation.",
+    inputSchema: z.object({
+      message: z
+        .string()
+        .optional()
+        .describe("Optional custom message to display"),
+    }),
+    execute: async ({
+      message,
+    }: {
+      message?: string;
+    }): Promise<SignInPromptResult> => {
+      return { showPrompt: true, message };
+    },
+  },
 };
 
 /**
@@ -360,4 +386,5 @@ export const {
   getPriceHistory,
   assessValue,
   switchAgentMode,
+  promptSignIn,
 } = tools;
