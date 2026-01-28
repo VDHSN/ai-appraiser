@@ -1,9 +1,12 @@
 "use client";
 
 import type { UIMessage } from "ai";
+import { useEffect, useRef } from "react";
 import { Streamdown } from "streamdown";
+import { analytics } from "@/lib/analytics";
 import { ToolInvocation } from "./ToolInvocation";
 import { ThinkingIndicator } from "./ThinkingIndicator";
+import { useAgent } from "@/lib/agent";
 
 interface ChatMessageProps {
   message: UIMessage;
@@ -22,6 +25,26 @@ function isToolPart(
 
 export function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === "user";
+  const { agentId } = useAgent();
+  const trackedToolCalls = useRef<Set<string>>(new Set());
+
+  // Track tool calls when they complete
+  useEffect(() => {
+    for (const part of message.parts) {
+      if (isToolPart(part) && part.output !== undefined) {
+        if (!trackedToolCalls.current.has(part.toolCallId)) {
+          trackedToolCalls.current.add(part.toolCallId);
+          const toolName = part.type.replace("tool-", "");
+          analytics.track("agent:tool_called", {
+            tool_name: toolName,
+            tool_params: part.input,
+            agent_id: agentId,
+            source: "agent",
+          });
+        }
+      }
+    }
+  }, [message.parts, agentId]);
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>

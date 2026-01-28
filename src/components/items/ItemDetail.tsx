@@ -1,5 +1,6 @@
 "use client";
 
+import { analytics } from "@/lib/analytics";
 import type { UnifiedItem } from "@/lib/adapters/types";
 import { Badge } from "@/components/ui/Badge";
 import { Price, PriceRange } from "@/components/ui/Price";
@@ -121,6 +122,14 @@ export function ItemDetail({ item }: ItemDetailProps) {
             href={item.url}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => {
+              analytics.track("user:link_clicked", {
+                item_id: item.id,
+                platform: item.platform,
+                url: item.url,
+                source: "user",
+              });
+            }}
             className="inline-block rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--accent-hover)]"
           >
             View on {item.platform}

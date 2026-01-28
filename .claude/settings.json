@@ -7,16 +7,16 @@
       "Bash(pnpm run lint)",
       "Bash(pnpm run format)",
       "Bash(pnpm test:*)",
+      "Bash(pnpm dlx vercel logs:*)",
       "Bash(SKIP_INTEGRATION_TESTS=true pnpm test:*)",
 
-      "mcp__plugin_compound-engineering_Playwright__browser_network_requests",
-      "mcp__plugin_compound-engineering_Playwright__browser_navigate",
-      "mcp__plugin_compound-engineering_Playwright__browser_close",
-      "mcp__plugin_compound-engineering_Playwright__browser_click",
-      "mcp__plugin_compound-engineering_Playwright__browser_snapshot",
-      "mcp__plugin_compound-engineering_Playwright__browser_evaluate",
+      "mcp__posthog__docs-search",
+      "mcp__vercel-appraiser__get_deployment_build_logs",
+      "mcp__vercel-appraiser__list_deployments",
 
+      "WebSearch",
       "WebFetch(domain:www.liveauctioneers.com)",
+      "WebFetch(domain:posthog.com)",
       "WebFetch(domain:www.proxibid.com)"
     ]
   },

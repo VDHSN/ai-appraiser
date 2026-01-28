@@ -1,5 +1,5 @@
-import posthog from "posthog-js";
+import { analytics } from "@/lib/analytics";
 
-posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
-  api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+analytics.init(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
+  host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
 });

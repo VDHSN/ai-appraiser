@@ -8,6 +8,16 @@ model: opus
 
 # Create a plan for a new feature or bug fix
 
+Your job is only to plan the feature, determine acceptance criteria and what needs to be tested.
+
+_Do not write code or build anything_
+
+Operate in a readonly capacity for now.
+
+Your output is a comprehensive plan as a github issue.
+
+When I have approved the plan, create a new Gthub Issue in this repository that contains the complete plan and research in a well structured description.
+
 ## Introduction
 
 **Note: The current year is 2026.** Use this when dating plans and searching for recent documentation.
@@ -30,15 +40,3 @@ Run these three agents in parallel at the same time:
 - Task framework-docs-researcher(feature_description)
 - Task repo-research-analyst(feature_description)
 - Task git-history-analyst(feature_description)
-
-3.
-
-Your job is only to plan the feature, determine acceptance criteria and what needs to be tested.
-
-_Do not write code or build anything_
-
-Operate in a readonly capacity for now.
-
-Your output is a comprehensive plan as a github issue.
-
-When I have approved the plan, create a new Gthub Issue in this repository that contains the complete plan and research in a well structured description.

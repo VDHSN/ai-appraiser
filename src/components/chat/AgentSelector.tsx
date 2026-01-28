@@ -4,6 +4,7 @@
  * Tab-style selector for switching between agent modes.
  */
 
+import { analytics } from "@/lib/analytics";
 import { useAgent, listAgents } from "@/lib/agent";
 
 export function AgentSelector() {
@@ -17,7 +18,16 @@ export function AgentSelector() {
         return (
           <button
             key={agent.id}
-            onClick={() => setAgentId(agent.id)}
+            onClick={() => {
+              if (agent.id !== agentId) {
+                analytics.track("user:agent_switched", {
+                  from_agent: agentId,
+                  to_agent: agent.id,
+                  source: "user",
+                });
+              }
+              setAgentId(agent.id);
+            }}
             className={`flex-1 rounded-md px-3 py-2 text-left transition-all ${
               isActive
                 ? "bg-white shadow-sm dark:bg-zinc-900"

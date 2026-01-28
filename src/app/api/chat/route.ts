@@ -4,10 +4,18 @@
  */
 
 import { streamText, UIMessage, convertToModelMessages, stepCountIs } from "ai";
-import { google } from "@ai-sdk/google";
 import { z } from "zod";
+import { getTracedModel } from "@/lib/analytics/llm";
+import { serverAnalytics } from "@/lib/analytics/server";
 import { getToolSubset } from "@/lib/tools";
 import { getAgent, AgentIdSchema, getDefaultAgentId } from "@/lib/agent";
+
+function extractTextContent(message: UIMessage): string {
+  return message.parts
+    .filter((p): p is { type: "text"; text: string } => p.type === "text")
+    .map((p) => p.text)
+    .join("");
+}
 
 const RequestSchema = z.object({
   messages: z.array(z.any()),
@@ -29,12 +37,34 @@ export async function POST(req: Request) {
   const agent = getAgent(agentId);
   const tools = getToolSubset(agent.toolIds);
 
+  // Track user message
+  const lastUserMessage = (messages as UIMessage[]).findLast(
+    (m) => m.role === "user",
+  );
+  if (lastUserMessage) {
+    const content = extractTextContent(lastUserMessage);
+    serverAnalytics.track("chat:user_message", {
+      agent_id: agentId,
+      content,
+      message_length: content.length,
+    });
+  }
+
   const result = streamText({
-    model: google(agent.model ?? "gemini-3-pro-preview"),
+    model: getTracedModel(agent.model ?? "gemini-3-pro-preview"),
     system: agent.systemPrompt,
     messages: await convertToModelMessages(messages as UIMessage[]),
     tools,
     stopWhen: stepCountIs(agent.maxSteps ?? 7),
+    onFinish: ({ text, toolCalls }) => {
+      serverAnalytics.track("chat:agent_response", {
+        agent_id: agentId,
+        content: text,
+        response_length: text.length,
+        has_tool_calls: toolCalls.length > 0,
+        tool_count: toolCalls.length,
+      });
+    },
   });
 
   return result.toUIMessageStreamResponse();

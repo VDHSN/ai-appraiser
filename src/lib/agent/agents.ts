@@ -12,7 +12,12 @@ const agents: Record<AgentId, AgentConfig> = {
     name: "Auction Curator",
     description: "Discover collectibles in upcoming auctions",
     systemPrompt: curatorPrompt,
-    toolIds: ["searchItems", "getItemDetails", "switchAgentMode"],
+    toolIds: [
+      "searchItems",
+      "getItemDetails",
+      "switchAgentMode",
+      "promptSignIn",
+    ],
     placeholder: {
       text: "Search for auction items",
       example: 'Try: "Find art deco lamps under $500"',
@@ -28,6 +33,7 @@ const agents: Record<AgentId, AgentConfig> = {
       "assessValue",
       "getItemDetails",
       "switchAgentMode",
+      "promptSignIn",
     ],
     placeholder: {
       text: "Ask about item valuations",

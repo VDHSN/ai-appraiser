@@ -8,6 +8,7 @@ import { ItemDetail } from "@/components/items/ItemDetail";
 import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ModeSwitchCard } from "./ModeSwitchCard";
+import { SignInPromptWrapper } from "./SignInPromptWrapper";
 
 interface ToolInvocationProps {
   toolName: string;
@@ -20,6 +21,11 @@ interface ModeSwitchResult {
   switched: boolean;
   targetAgent: AgentId;
   reason: string;
+}
+
+interface SignInPromptResult {
+  showPrompt: boolean;
+  message?: string;
 }
 
 export function ToolInvocation({
@@ -55,6 +61,11 @@ export function ToolInvocation({
         />
       );
     }
+    case "promptSignIn": {
+      const promptResult = result as SignInPromptResult;
+      if (!promptResult.showPrompt) return null;
+      return <SignInPromptWrapper message={promptResult.message} />;
+    }
     default:
       return (
         <div className="rounded-lg bg-zinc-100 p-3 text-sm dark:bg-zinc-800">
@@ -73,6 +84,7 @@ function ToolLoading({ toolName }: { toolName: string }) {
     getPriceHistory: "Finding comparable sales...",
     assessValue: "Calculating valuation...",
     switchAgentMode: "Switching mode...",
+    promptSignIn: "", // Silent - no loading state for sign-in prompt
   };
 
   return (
