@@ -11,7 +11,6 @@ jobs:
       contents: write
       pull-requests: read
       issues: read
-      id-token: write
 
     steps:
       - name: Checkout repository
@@ -71,54 +70,13 @@ jobs:
           echo "tag=$NEW_TAG" >> $GITHUB_OUTPUT
           echo "Generated version: $NEW_TAG"
 
-      - name: Generate release notes with Claude
-        id: claude
-        uses: anthropics/claude-code-action@v1
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          prompt: |
-            Generate release notes for version ${{ steps.version.outputs.tag }}.
-
-            1. Read the file "commits.txt" in the current directory to get the list of commits.
-
-            2. Analyze each commit and categorize them into sections.
-
-            3. Write the release notes to a file called "release-notes.md" with exactly these sections (include all sections even if empty):
-
-            ## Features
-            [List new features, enhancements, or new capabilities. Look for commits with "feat", "add", "new", "implement", "support" keywords]
-
-            ## Fixes
-            [List bug fixes, corrections, or resolved issues. Look for commits with "fix", "bug", "patch", "resolve", "correct" keywords]
-
-            ## Deprecations
-            [List deprecated features, removed functionality, or breaking changes. Look for commits with "deprecate", "remove", "delete", "breaking" keywords]
-
-            ## Miscellaneous
-            [List all other changes that don't fit above: refactoring, docs, tests, dependencies, chores, etc.]
-
-            Format rules:
-            - Use bullet points for each item
-            - Keep descriptions concise but informative
-            - Include the commit hash in parentheses
-            - If a section has no items, write "No changes in this category."
-            - Do NOT include any text before the first ## heading
-            - Do NOT include any explanatory text after the sections
-
-            Write ONLY the release notes markdown to "release-notes.md", nothing else.
-
-      - name: Read release notes
-        id: release_notes
+      - name: Generate release notes
         run: |
-          if [ -f "release-notes.md" ]; then
-            NOTES=$(cat release-notes.md)
-          else
-            NOTES="No release notes generated."
-          fi
-          # Use delimiter for multi-line output
-          echo "notes<<EOF" >> $GITHUB_OUTPUT
-          echo "$NOTES" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          {
+            echo "## Changes"
+            echo ""
+            cat commits.txt
+          } > release-notes.md
 
       - name: Create GitHub Release
         id: create_release
@@ -150,7 +108,7 @@ jobs:
         run: |
           RELEASE_URL="${{ steps.create_release.outputs.release_url }}"
           VERSION="${{ steps.version.outputs.tag }}"
-          NOTES="${{ steps.release_notes.outputs.notes }}"
+          NOTES=$(cat release-notes.md)
 
           # Create message for Keybase
           MESSAGE="*New Release: ${VERSION}*
