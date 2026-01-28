@@ -56,7 +56,7 @@ describe("ChatInput responsive design", () => {
   it("renders with responsive padding classes", () => {
     const { container } = render(<ChatInput {...defaultProps} />);
     const form = container.querySelector("form");
-    expect(hasClasses(form, ["p-3", "sm:p-4"])).toBe(true);
+    expect(hasClasses(form, ["pb-4", "pt-3", "sm:pb-5", "sm:pt-4"])).toBe(true);
   });
 
   it("renders with safe area horizontal inset on inner container", () => {
@@ -80,7 +80,7 @@ describe("ChatInput responsive design", () => {
   it("renders textarea with responsive padding", () => {
     render(<ChatInput {...defaultProps} />);
     const textarea = screen.getByRole("textbox");
-    expect(hasClasses(textarea, ["px-3", "py-2.5", "sm:px-4", "sm:py-3"])).toBe(
+    expect(hasClasses(textarea, ["px-3", "py-3", "sm:px-4", "sm:py-3"])).toBe(
       true,
     );
   });

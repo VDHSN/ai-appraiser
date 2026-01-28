@@ -13,8 +13,8 @@ interface ItemDetailProps {
 
 export function ItemDetail({ item }: ItemDetailProps) {
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
-      <div className="grid gap-6 md:grid-cols-2">
+    <div className="w-full max-w-full overflow-hidden rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900 sm:p-4">
+      <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
         <ImageGallery images={item.images} alt={item.title} />
 
         <div className="space-y-4">
