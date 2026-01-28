@@ -4,6 +4,28 @@
  */
 
 import { JSDOM } from "jsdom";
+
+// --- Custom Error Types ---
+
+export class ProxibidBlockedError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode?: number,
+  ) {
+    super(message);
+    this.name = "ProxibidBlockedError";
+  }
+}
+
+export class ProxibidParseError extends Error {
+  constructor(
+    message: string,
+    public readonly rawContent?: string,
+  ) {
+    super(message);
+    this.name = "ProxibidParseError";
+  }
+}
 import {
   PlatformAdapter,
   SearchQuery,
@@ -255,6 +277,22 @@ function buildUnifiedItem(
 
 export type FetchFn = typeof fetch;
 
+function isHtmlContent(text: string): boolean {
+  const trimmed = text.trim().toLowerCase();
+  return (
+    trimmed.startsWith("<!doctype") ||
+    trimmed.startsWith("<html") ||
+    trimmed.includes("<head>") ||
+    trimmed.includes("incapsula")
+  );
+}
+
+function isBlockedResponse(status: number, text?: string): boolean {
+  if (status === 403 || status === 429) return true;
+  if (text && isHtmlContent(text)) return true;
+  return false;
+}
+
 async function fetchJson<T>(
   fetchFn: FetchFn,
   url: string,
@@ -265,11 +303,34 @@ async function fetchJson<T>(
     headers: REQUIRED_HEADERS,
   });
 
+  const text = await response.text();
+
   if (!response.ok) {
+    if (isBlockedResponse(response.status, text)) {
+      throw new ProxibidBlockedError(
+        `${errorContext}: blocked by WAF (${response.status})`,
+        response.status,
+      );
+    }
     throw new Error(`${errorContext}: ${response.status}`);
   }
 
-  return response.json();
+  // Check for HTML response even on 200 (WAF can return 200 with block page)
+  if (isHtmlContent(text)) {
+    throw new ProxibidBlockedError(
+      `${errorContext}: received HTML instead of JSON (likely blocked)`,
+      response.status,
+    );
+  }
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new ProxibidParseError(
+      `${errorContext}: invalid JSON response`,
+      text.slice(0, 500),
+    );
+  }
 }
 
 async function fetchHtml(
@@ -289,52 +350,116 @@ async function fetchHtml(
   return response.text();
 }
 
+// --- Response Validation ---
+
+function validateSearchResponse(data: unknown): PBSearchResponse {
+  if (data === null || typeof data !== "object") {
+    return { item: [], totalResultCount: 0 };
+  }
+
+  const obj = data as Record<string, unknown>;
+
+  // Validate item array exists and has expected structure
+  if (!Array.isArray(obj.item)) {
+    return { item: [], totalResultCount: 0 };
+  }
+
+  // Filter to only valid items with meta property
+  const validItems = obj.item.filter(
+    (item): item is PBSearchItem =>
+      item !== null &&
+      typeof item === "object" &&
+      "meta" in item &&
+      item.meta !== null &&
+      typeof item.meta === "object" &&
+      "LotID" in item.meta,
+  );
+
+  return {
+    item: validItems,
+    totalResultCount:
+      typeof obj.totalResultCount === "number" ? obj.totalResultCount : 0,
+    pageLength: typeof obj.pageLength === "number" ? obj.pageLength : undefined,
+    pageNumber: typeof obj.pageNumber === "number" ? obj.pageNumber : undefined,
+  };
+}
+
 // --- Adapter Class ---
 
 export interface ProxiBidConfig {
   fetchFn?: FetchFn;
+  logger?: (message: string) => void;
 }
 
 export class ProxiBidAdapter implements PlatformAdapter {
   readonly platform = PLATFORM;
   private readonly fetchFn: FetchFn;
+  private readonly logger: (message: string) => void;
 
   constructor(config: ProxiBidConfig = {}) {
     this.fetchFn = config.fetchFn ?? fetch;
+    this.logger = config.logger ?? console.warn;
   }
 
   async search(query: SearchQuery): Promise<SearchResult[]> {
     const url = buildSearchUrl(query);
-    const response = await fetchJson<PBSearchResponse>(
-      this.fetchFn,
-      url,
-      "ProxiBid search failed",
-    );
-    const items = response.item ?? [];
-    return items.map((item) => mapSearchItem(item.meta, false));
+
+    try {
+      const rawResponse = await fetchJson<unknown>(
+        this.fetchFn,
+        url,
+        "ProxiBid search failed",
+      );
+      const response = validateSearchResponse(rawResponse);
+      return response.item.map((item) => mapSearchItem(item.meta, false));
+    } catch (error) {
+      if (error instanceof ProxibidBlockedError) {
+        this.logger(`ProxiBid search blocked: ${error.message}`);
+        return [];
+      }
+      if (error instanceof ProxibidParseError) {
+        this.logger(`ProxiBid search parse error: ${error.message}`);
+        return [];
+      }
+      throw error;
+    }
   }
 
   async getPriceHistory(query: SearchQuery): Promise<SearchResult[]> {
     const url = buildSearchUrl(query, "closed");
-    const response = await fetchJson<PBSearchResponse>(
-      this.fetchFn,
-      url,
-      "ProxiBid price history failed",
-    );
-    const items = response.item ?? [];
-    return items.map((item) => mapSearchItem(item.meta, true));
+
+    try {
+      const rawResponse = await fetchJson<unknown>(
+        this.fetchFn,
+        url,
+        "ProxiBid price history failed",
+      );
+      const response = validateSearchResponse(rawResponse);
+      return response.item.map((item) => mapSearchItem(item.meta, true));
+    } catch (error) {
+      if (error instanceof ProxibidBlockedError) {
+        this.logger(`ProxiBid price history blocked: ${error.message}`);
+        return [];
+      }
+      if (error instanceof ProxibidParseError) {
+        this.logger(`ProxiBid price history parse error: ${error.message}`);
+        return [];
+      }
+      throw error;
+    }
   }
 
   async getItem(itemId: string): Promise<UnifiedItem> {
     // First, search for the item to get metadata
     const searchUrl = buildSearchUrl({ keywords: itemId, pageSize: 1 });
-    const searchResponse = await fetchJson<PBSearchResponse>(
+    const rawResponse = await fetchJson<unknown>(
       this.fetchFn,
       searchUrl,
       "ProxiBid item search failed",
     );
+    const searchResponse = validateSearchResponse(rawResponse);
 
-    const item = searchResponse.item?.find(
+    const item = searchResponse.item.find(
       (i) => String(i.meta.LotID) === itemId,
     );
 
@@ -371,4 +496,7 @@ export {
   type PBSearchItem,
   type PBLotMeta,
   type ScrapedItemDetail,
+  isHtmlContent,
+  isBlockedResponse,
+  validateSearchResponse,
 };

@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   ProxiBidAdapter,
+  ProxibidBlockedError,
+  ProxibidParseError,
   buildSearchUrl,
   buildImageUrl,
   buildProxiedImageUrl,
@@ -9,6 +11,9 @@ import {
   extractCategoriesFromTitle,
   scrapeItemDetail,
   mapSearchItem,
+  isHtmlContent,
+  isBlockedResponse,
+  validateSearchResponse,
   type PBLotMeta,
   type PBSearchResponse,
 } from "../proxibid";
@@ -27,11 +32,14 @@ const createMockFetch = (
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   return vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
     const response = responses[callIndex++] ?? responses[responses.length - 1];
+    // If data is provided, serialize it for the text() method (simulates real fetch)
+    const textContent =
+      response.text ?? (response.data ? JSON.stringify(response.data) : "");
     return {
       ok: response.ok,
       status: response.status ?? (response.ok ? 200 : 500),
       json: async () => response.data,
-      text: async () => response.text ?? "",
+      text: async () => textContent,
     } as Response;
   });
 };
@@ -392,6 +400,139 @@ describe("mapSearchItem", () => {
   });
 });
 
+// --- Helper Function Tests ---
+
+describe("isHtmlContent", () => {
+  it("detects DOCTYPE", () => {
+    expect(isHtmlContent("<!DOCTYPE html><html>")).toBe(true);
+    expect(isHtmlContent("  <!doctype html>")).toBe(true);
+  });
+
+  it("detects html tag", () => {
+    expect(isHtmlContent("<html><head>")).toBe(true);
+  });
+
+  it("detects head tag", () => {
+    expect(isHtmlContent("something<head>something")).toBe(true);
+  });
+
+  it("detects incapsula", () => {
+    expect(isHtmlContent("Request blocked by incapsula")).toBe(true);
+  });
+
+  it("returns false for JSON", () => {
+    expect(isHtmlContent('{"item": []}')).toBe(false);
+    expect(isHtmlContent('{"totalResultCount": 0}')).toBe(false);
+  });
+});
+
+describe("isBlockedResponse", () => {
+  it("detects 403 status", () => {
+    expect(isBlockedResponse(403)).toBe(true);
+  });
+
+  it("detects 429 status", () => {
+    expect(isBlockedResponse(429)).toBe(true);
+  });
+
+  it("detects HTML content on 200", () => {
+    expect(isBlockedResponse(200, "<!DOCTYPE html>")).toBe(true);
+  });
+
+  it("returns false for valid JSON response", () => {
+    expect(isBlockedResponse(200, '{"item": []}')).toBe(false);
+  });
+});
+
+describe("validateSearchResponse", () => {
+  it("returns empty for null", () => {
+    const result = validateSearchResponse(null);
+    expect(result.item).toEqual([]);
+    expect(result.totalResultCount).toBe(0);
+  });
+
+  it("returns empty for non-object", () => {
+    const result = validateSearchResponse("string");
+    expect(result.item).toEqual([]);
+  });
+
+  it("returns empty when item is not array", () => {
+    const result = validateSearchResponse({ item: "not array" });
+    expect(result.item).toEqual([]);
+  });
+
+  it("filters invalid items without meta", () => {
+    const result = validateSearchResponse({
+      item: [{ noMeta: true }, { meta: { LotID: 1, LotTitle: "Test" } }],
+      totalResultCount: 2,
+    });
+    expect(result.item).toHaveLength(1);
+    expect(result.item[0].meta.LotID).toBe(1);
+  });
+
+  it("filters items with null meta", () => {
+    const result = validateSearchResponse({
+      item: [{ meta: null }, { meta: { LotID: 2, LotTitle: "Valid" } }],
+    });
+    expect(result.item).toHaveLength(1);
+  });
+
+  it("filters items without LotID", () => {
+    const result = validateSearchResponse({
+      item: [
+        { meta: { LotTitle: "No ID" } },
+        { meta: { LotID: 3, LotTitle: "Has ID" } },
+      ],
+    });
+    expect(result.item).toHaveLength(1);
+    expect(result.item[0].meta.LotID).toBe(3);
+  });
+
+  it("preserves valid response", () => {
+    const validResponse: PBSearchResponse = {
+      item: [{ meta: mockLotMeta }],
+      totalResultCount: 1,
+      pageLength: 25,
+      pageNumber: 1,
+    };
+    const result = validateSearchResponse(validResponse);
+    expect(result.item).toHaveLength(1);
+    expect(result.totalResultCount).toBe(1);
+    expect(result.pageLength).toBe(25);
+    expect(result.pageNumber).toBe(1);
+  });
+});
+
+// --- Custom Error Types Tests ---
+
+describe("ProxibidBlockedError", () => {
+  it("has correct name and message", () => {
+    const error = new ProxibidBlockedError("blocked", 403);
+    expect(error.name).toBe("ProxibidBlockedError");
+    expect(error.message).toBe("blocked");
+    expect(error.statusCode).toBe(403);
+  });
+
+  it("is instanceof Error", () => {
+    const error = new ProxibidBlockedError("test");
+    expect(error).toBeInstanceOf(Error);
+  });
+});
+
+describe("ProxibidParseError", () => {
+  it("has correct name and message", () => {
+    const error = new ProxibidParseError("parse failed", "raw content");
+    expect(error.name).toBe("ProxibidParseError");
+    expect(error.message).toBe("parse failed");
+    expect(error.rawContent).toBe("raw content");
+  });
+
+  it("is instanceof Error", () => {
+    const error = new ProxibidParseError("test");
+    expect(error).toBeInstanceOf(Error);
+  });
+});
+
 // --- Adapter Tests ---
 
 describe("ProxiBidAdapter", () => {
@@ -401,6 +542,12 @@ describe("ProxiBidAdapter", () => {
       const adapter = new ProxiBidAdapter({ fetchFn: customFetch });
 
       expect(adapter.platform).toBe("proxibid");
+    });
+
+    it("accepts custom logger", () => {
+      const logger = vi.fn();
+      new ProxiBidAdapter({ logger });
+      // Logger is accepted without error
     });
   });
 
@@ -466,13 +613,67 @@ describe("ProxiBidAdapter", () => {
       expect(results).toEqual([]);
     });
 
-    it("throws on failed request", async () => {
-      const mockFetch = createMockFetch([{ ok: false, status: 500 }]);
+    it("throws on failed request (non-blocked)", async () => {
+      const mockFetch = createMockFetch([
+        { ok: false, status: 500, text: "Internal Server Error" },
+      ]);
       const adapter = new ProxiBidAdapter({ fetchFn: mockFetch });
 
       await expect(adapter.search({ keywords: "test" })).rejects.toThrow(
         "ProxiBid search failed: 500",
       );
+    });
+
+    it("returns empty array on 403 blocked response", async () => {
+      const logger = vi.fn();
+      const mockFetch = createMockFetch([
+        { ok: false, status: 403, text: "Forbidden" },
+      ]);
+      const adapter = new ProxiBidAdapter({ fetchFn: mockFetch, logger });
+
+      const results = await adapter.search({ keywords: "test" });
+
+      expect(results).toEqual([]);
+      expect(logger).toHaveBeenCalledWith(expect.stringContaining("blocked"));
+    });
+
+    it("returns empty array on HTML response (WAF block)", async () => {
+      const logger = vi.fn();
+      const mockFetch = createMockFetch([
+        { ok: true, status: 200, text: "<!DOCTYPE html><html>Blocked</html>" },
+      ]);
+      const adapter = new ProxiBidAdapter({ fetchFn: mockFetch, logger });
+
+      const results = await adapter.search({ keywords: "test" });
+
+      expect(results).toEqual([]);
+      expect(logger).toHaveBeenCalledWith(expect.stringContaining("blocked"));
+    });
+
+    it("returns empty array on invalid JSON", async () => {
+      const logger = vi.fn();
+      const mockFetch = createMockFetch([
+        { ok: true, status: 200, text: "not valid json {{{" },
+      ]);
+      const adapter = new ProxiBidAdapter({ fetchFn: mockFetch, logger });
+
+      const results = await adapter.search({ keywords: "test" });
+
+      expect(results).toEqual([]);
+      expect(logger).toHaveBeenCalledWith(
+        expect.stringContaining("parse error"),
+      );
+    });
+
+    it("handles malformed response structure gracefully", async () => {
+      const mockFetch = createMockFetch([
+        { ok: true, data: { unexpected: "structure" } },
+      ]);
+      const adapter = new ProxiBidAdapter({ fetchFn: mockFetch });
+
+      const results = await adapter.search({ keywords: "test" });
+
+      expect(results).toEqual([]);
     });
   });
 
@@ -502,6 +703,36 @@ describe("ProxiBidAdapter", () => {
 
       expect(results[0].soldPrice).toBe(3200);
       expect(results[0].status).toBe("sold");
+    });
+
+    it("returns empty array on blocked response", async () => {
+      const logger = vi.fn();
+      const mockFetch = createMockFetch([
+        { ok: false, status: 403, text: "Forbidden" },
+      ]);
+      const adapter = new ProxiBidAdapter({ fetchFn: mockFetch, logger });
+
+      const results = await adapter.getPriceHistory({ keywords: "test" });
+
+      expect(results).toEqual([]);
+      expect(logger).toHaveBeenCalledWith(
+        expect.stringContaining("price history blocked"),
+      );
+    });
+
+    it("returns empty array on parse error", async () => {
+      const logger = vi.fn();
+      const mockFetch = createMockFetch([
+        { ok: true, status: 200, text: "invalid json" },
+      ]);
+      const adapter = new ProxiBidAdapter({ fetchFn: mockFetch, logger });
+
+      const results = await adapter.getPriceHistory({ keywords: "test" });
+
+      expect(results).toEqual([]);
+      expect(logger).toHaveBeenCalledWith(
+        expect.stringContaining("parse error"),
+      );
     });
   });
 
