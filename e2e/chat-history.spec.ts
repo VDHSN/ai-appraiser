@@ -147,7 +147,7 @@ test.describe("Chat History", () => {
     await expect(page.getByText(/Victorian-era chair/)).toBeVisible();
   });
 
-  test("chat session is saved when returning to landing page", async ({
+  test("chat session appears immediately when returning to landing page (reactive UI)", async ({
     page,
   }) => {
     // Start a new chat
@@ -174,13 +174,8 @@ test.describe("Chat History", () => {
     // Wait for landing page to load
     await expect(searchInput).toBeVisible({ timeout: 5_000 });
 
-    // Wait a moment for the async save to complete
-    await page.waitForTimeout(1000);
-
-    // Reload to ensure localStorage is read fresh
-    await page.reload();
-
-    // Verify the Recent Chats section now appears
+    // CRITICAL: Recent Chats should appear WITHOUT reload (tests reactive UI)
+    // This catches bugs where the UI doesn't update after same-tab localStorage changes
     await expect(page.getByText("Recent Chats")).toBeVisible({
       timeout: 5_000,
     });
@@ -191,6 +186,39 @@ test.describe("Chat History", () => {
 
     // Verify the chat shows the Curator badge
     await expect(chatItems.first().getByText("Curator")).toBeVisible();
+  });
+
+  test("chat session persists after page reload", async ({ page }) => {
+    // Start a new chat
+    const searchInput = page.locator('[data-testid="search-input"]');
+    await searchInput.fill("Tell me about vintage cameras");
+
+    const curateButton = page.locator('[data-testid="search-button-curate"]');
+    await curateButton.click();
+
+    // Wait for chat to complete
+    await expect(page.locator('[data-testid="chat-message-user"]')).toBeVisible(
+      { timeout: 5_000 },
+    );
+    await expect(
+      page.locator('[data-testid="chat-message-assistant"]'),
+    ).toBeVisible({ timeout: 30_000 });
+
+    // Return to landing page
+    const brandLogo = page.getByRole("button", { name: "Return to home" });
+    await brandLogo.click();
+    await expect(searchInput).toBeVisible({ timeout: 5_000 });
+
+    // Wait for save to complete, then reload to test persistence
+    await page.waitForTimeout(500);
+    await page.reload();
+
+    // Verify chat persists after reload (tests localStorage persistence)
+    await expect(page.getByText("Recent Chats")).toBeVisible({
+      timeout: 5_000,
+    });
+    const chatItems = page.locator('[data-testid="recent-chat-item"]');
+    await expect(chatItems).toHaveCount(1);
   });
 
   test("displays multiple recent chats in order", async ({ page }) => {
