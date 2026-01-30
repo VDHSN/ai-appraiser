@@ -3,6 +3,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AgentProvider } from "@/lib/agent";
+import { HomeProvider } from "@/lib/home";
 import { AnalyticsIdentifier } from "@/components/analytics";
 import "./globals.css";
 
@@ -39,7 +40,9 @@ export default function RootLayout({
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
           <AnalyticsIdentifier />
-          <AgentProvider>{children}</AgentProvider>
+          <AgentProvider>
+            <HomeProvider>{children}</HomeProvider>
+          </AgentProvider>
           <Analytics />
         </body>
       </html>

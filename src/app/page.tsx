@@ -1,5 +1,5 @@
-import { ChatContainer } from "@/components/chat/ChatContainer";
+import { NewUIContainer } from "@/components/home";
 
 export default function Home() {
-  return <ChatContainer />;
+  return <NewUIContainer />;
 }
