@@ -236,5 +236,79 @@ describe("RecentChats", () => {
       expect(curatorBadge).toBeDefined();
       expect(appraiserBadge).toBeDefined();
     });
+
+    it("deletes a chat and tracks chat:deleted when clicking delete button", async () => {
+      const user = userEvent.setup();
+      const sessions = [
+        {
+          id: "session-1",
+          preview: "Chat to delete",
+          agentId: "curator",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          messages: [{ id: "m1", role: "user", parts: [] }],
+        },
+      ];
+      memoryStorage.setItem(
+        "ai-appraiser-chat-history",
+        JSON.stringify(sessions),
+      );
+
+      render(<RecentChats />);
+
+      expect(screen.getByText("Chat to delete")).toBeDefined();
+
+      const deleteButton = screen.getByTestId("desktop-delete-button");
+      await user.click(deleteButton);
+
+      expect(mockTrack).toHaveBeenCalledWith("chat:deleted", {
+        chat_title: "Chat to delete",
+        agent_id: "curator",
+        session_id: "session-1",
+      });
+
+      // Verify chat is removed from storage
+      const storedData = memoryStorage.getItem("ai-appraiser-chat-history");
+      const remainingSessions = storedData ? JSON.parse(storedData) : [];
+      expect(remainingSessions).toHaveLength(0);
+    });
+
+    it("only deletes the clicked chat, leaving others intact", async () => {
+      const user = userEvent.setup();
+      const sessions = [
+        {
+          id: "session-1",
+          preview: "First chat",
+          agentId: "curator",
+          createdAt: Date.now() - 60000,
+          updatedAt: Date.now() - 60000,
+          messages: [{ id: "m1", role: "user", parts: [] }],
+        },
+        {
+          id: "session-2",
+          preview: "Second chat",
+          agentId: "appraiser",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          messages: [{ id: "m2", role: "user", parts: [] }],
+        },
+      ];
+      memoryStorage.setItem(
+        "ai-appraiser-chat-history",
+        JSON.stringify(sessions),
+      );
+
+      render(<RecentChats />);
+
+      // Get the first delete button (for session-2 which is most recent)
+      const deleteButtons = screen.getAllByTestId("desktop-delete-button");
+      await user.click(deleteButtons[0]);
+
+      // Verify only one chat remains
+      const storedData = memoryStorage.getItem("ai-appraiser-chat-history");
+      const remainingSessions = storedData ? JSON.parse(storedData) : [];
+      expect(remainingSessions).toHaveLength(1);
+      expect(remainingSessions[0].id).toBe("session-1");
+    });
   });
 });
