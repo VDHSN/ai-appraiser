@@ -454,8 +454,8 @@ test.describe("Fresh Chat Sessions", () => {
       page.locator('[data-testid="chat-message-assistant"]'),
     ).toBeVisible({ timeout: 30_000 });
 
-    // Verify we're using Curator
-    await expect(page.getByText("Curator", { exact: true })).toBeVisible();
+    // Verify we're using Auction Curator (the full agent name)
+    await expect(page.getByText("Auction Curator")).toBeVisible();
 
     // Return to homepage
     await brandLogo.click();
