@@ -21,11 +21,15 @@ export function HomePage() {
 
   const handleSubmit = (message: string, agent: AgentId) => {
     // Track agent selection if different from default
+    // Note: session_id is null here since the chat hasn't started yet
     if (agent !== DEFAULT_AGENT) {
       analytics.track("user:agent_switched", {
         from_agent: DEFAULT_AGENT,
         to_agent: agent,
         source: "user",
+        session_id: null,
+        is_restored: false,
+        restored_session_id: null,
       });
     }
     startChat(message, agent);

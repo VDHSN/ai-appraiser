@@ -20,6 +20,9 @@ function extractTextContent(message: UIMessage): string {
 const RequestSchema = z.object({
   messages: z.array(z.any()),
   agentId: AgentIdSchema.optional(),
+  sessionId: z.string().nullable().optional(),
+  isRestored: z.boolean().optional(),
+  restoredSessionId: z.string().nullable().optional(),
 });
 
 export async function POST(req: Request) {
@@ -33,7 +36,13 @@ export async function POST(req: Request) {
     });
   }
 
-  const { messages, agentId = getDefaultAgentId() } = parsed.data;
+  const {
+    messages,
+    agentId = getDefaultAgentId(),
+    sessionId = null,
+    isRestored = false,
+    restoredSessionId = null,
+  } = parsed.data;
   const agent = getAgent(agentId);
   const tools = getToolSubset(agent.toolIds);
 
@@ -47,6 +56,9 @@ export async function POST(req: Request) {
       agent_id: agentId,
       content,
       message_length: content.length,
+      session_id: sessionId,
+      is_restored: isRestored,
+      restored_session_id: restoredSessionId,
     });
   }
 
@@ -63,6 +75,9 @@ export async function POST(req: Request) {
         response_length: text.length,
         has_tool_calls: toolCalls.length > 0,
         tool_count: toolCalls.length,
+        session_id: sessionId,
+        is_restored: isRestored,
+        restored_session_id: restoredSessionId,
       });
     },
   });

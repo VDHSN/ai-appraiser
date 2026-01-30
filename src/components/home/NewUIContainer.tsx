@@ -69,7 +69,14 @@ export function NewUIContainer() {
     resumeMessages,
     resetToLanding,
   } = useHome();
-  const { agentId, setAgentId, agent, isHydrated } = useAgent();
+  const {
+    agentId,
+    setAgentId,
+    agent,
+    isHydrated,
+    isRestored,
+    restoredSessionId,
+  } = useAgent();
   const hasInitializedRef = useRef(false);
   const hasSavedRef = useRef(false);
   const [input, setInput] = useState("");
@@ -106,9 +113,14 @@ export function NewUIContainer() {
     () =>
       new DefaultChatTransport({
         api: "/api/chat",
-        body: { agentId },
+        body: {
+          agentId,
+          sessionId,
+          isRestored,
+          restoredSessionId,
+        },
       }),
-    [agentId],
+    [agentId, sessionId, isRestored, restoredSessionId],
   );
 
   const { messages, sendMessage, status, stop, setMessages } = useChat({
@@ -158,10 +170,13 @@ export function NewUIContainer() {
         from_agent: agentId,
         to_agent: targetAgent,
         source: "agent",
+        session_id: sessionId,
+        is_restored: isRestored,
+        restored_session_id: restoredSessionId,
       });
       setAgentId(targetAgent);
     }
-  }, [messages, agentId, setAgentId]);
+  }, [messages, agentId, setAgentId, sessionId, isRestored, restoredSessionId]);
 
   // Keep session data ref updated for save on transition
   useEffect(() => {

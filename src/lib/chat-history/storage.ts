@@ -11,6 +11,19 @@ import { type StorageProvider, createLocalStorageProvider } from "./interfaces";
 const STORAGE_KEY = "ai-appraiser-chat-history";
 const MAX_SESSIONS = 20;
 
+/** Custom event name for same-tab storage notifications */
+export const STORAGE_CHANGE_EVENT = "ai-appraiser-chat-history-change";
+
+/**
+ * Notify same-tab subscribers of storage changes.
+ * Browser's StorageEvent only fires for cross-tab changes.
+ */
+function notifySameTabSubscribers(): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(STORAGE_CHANGE_EVENT));
+  }
+}
+
 // Default storage provider using localStorage
 let storageProvider: StorageProvider = createLocalStorageProvider();
 
@@ -96,6 +109,7 @@ export function saveSession(
   );
 
   storageProvider.setItem(STORAGE_KEY, JSON.stringify(trimmedSessions));
+  notifySameTabSubscribers();
 }
 
 /**
@@ -105,6 +119,7 @@ export function deleteSession(sessionId: string): void {
   const sessions = getAllSessions();
   const filtered = sessions.filter((s) => s.id !== sessionId);
   storageProvider.setItem(STORAGE_KEY, JSON.stringify(filtered));
+  notifySameTabSubscribers();
 }
 
 /**
@@ -112,6 +127,7 @@ export function deleteSession(sessionId: string): void {
  */
 export function clearAllSessions(): void {
   storageProvider.removeItem(STORAGE_KEY);
+  notifySameTabSubscribers();
 }
 
 // Pure helper functions

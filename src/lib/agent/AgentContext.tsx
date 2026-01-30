@@ -3,6 +3,7 @@
 /**
  * React context for managing the active agent mode.
  * Persists selection to localStorage.
+ * Also exposes chat session state for analytics.
  */
 
 import {
@@ -18,6 +19,7 @@ import type { AgentId } from "./types";
 import { AgentIdSchema } from "./types";
 import { getAgent, getDefaultAgentId } from "./agents";
 import type { AgentConfig } from "./types";
+import { useHome } from "@/lib/home";
 
 const STORAGE_KEY = "apprAIser:agentId";
 
@@ -26,6 +28,12 @@ interface AgentContextValue {
   setAgentId: (id: AgentId) => void;
   agent: AgentConfig;
   isHydrated: boolean;
+  /** Current chat session ID (null when on landing page) */
+  sessionId: string | null;
+  /** Whether the current chat was restored from history */
+  isRestored: boolean;
+  /** Session ID of the restored chat (same as sessionId when restored, null otherwise) */
+  restoredSessionId: string | null;
 }
 
 const AgentContext = createContext<AgentContextValue | null>(null);
@@ -74,6 +82,11 @@ export function AgentProvider({ children }: { children: ReactNode }) {
 
   const [isHydrated, setIsHydrated] = useState(false);
 
+  // Get session state from HomeContext for analytics
+  const { sessionId, resumeMessages } = useHome();
+  const isRestored = resumeMessages !== null;
+  const restoredSessionId = isRestored ? sessionId : null;
+
   // Track hydration - this is intentional post-mount state update
   useEffect(() => {
     setIsHydrated(true); // eslint-disable-line react-hooks/set-state-in-effect
@@ -87,7 +100,17 @@ export function AgentProvider({ children }: { children: ReactNode }) {
   const agent = getAgent(agentId);
 
   return (
-    <AgentContext.Provider value={{ agentId, setAgentId, agent, isHydrated }}>
+    <AgentContext.Provider
+      value={{
+        agentId,
+        setAgentId,
+        agent,
+        isHydrated,
+        sessionId,
+        isRestored,
+        restoredSessionId,
+      }}
+    >
       {children}
     </AgentContext.Provider>
   );

@@ -40,9 +40,9 @@ export default function RootLayout({
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
           <AnalyticsIdentifier />
-          <AgentProvider>
-            <HomeProvider>{children}</HomeProvider>
-          </AgentProvider>
+          <HomeProvider>
+            <AgentProvider>{children}</AgentProvider>
+          </HomeProvider>
           <Analytics />
         </body>
       </html>

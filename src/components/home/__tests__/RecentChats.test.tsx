@@ -21,11 +21,17 @@ vi.mock("@/lib/home", () => ({
   }),
 }));
 
+const mockTrack = vi.fn();
+vi.mock("@/lib/analytics", () => ({
+  analytics: { track: (...args: unknown[]) => mockTrack(...args) },
+}));
+
 describe("RecentChats", () => {
   let memoryStorage: ReturnType<typeof createMemoryStorageProvider>;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockTrack.mockClear();
     memoryStorage = createMemoryStorageProvider();
     setStorageProvider(memoryStorage);
     resetSessionsCache();
@@ -142,7 +148,7 @@ describe("RecentChats", () => {
       expect(screen.getByText("Appraiser")).toBeDefined();
     });
 
-    it("calls resumeChat when clicking a session", async () => {
+    it("calls resumeChat and tracks chat:restored when clicking a session", async () => {
       const user = userEvent.setup();
       const messages = [{ id: "m1", role: "user", parts: [] }];
       const sessions = [
@@ -165,6 +171,11 @@ describe("RecentChats", () => {
       const chatButton = screen.getByTestId("recent-chat-item");
       await user.click(chatButton);
 
+      expect(mockTrack).toHaveBeenCalledWith("chat:restored", {
+        chat_title: "Clickable chat",
+        agent_id: "curator",
+        session_id: "session-1",
+      });
       expect(mockResumeChat).toHaveBeenCalledWith(
         "session-1",
         "curator",
