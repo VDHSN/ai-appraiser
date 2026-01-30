@@ -20,6 +20,8 @@ const mockHomeState = {
   view: "landing" as "landing" | "chat",
   initialMessage: null as string | null,
   selectedAgent: null as string | null,
+  sessionId: null as string | null,
+  resumeMessages: null as Array<{ id: string; role: string }> | null,
   startChat: vi.fn(),
   resetToLanding: mockResetToLanding,
 };
@@ -44,11 +46,13 @@ vi.mock("@/lib/agent", () => ({
 // Mock useChat hook
 const mockSendMessage = vi.fn();
 const mockStop = vi.fn();
+const mockSetMessages = vi.fn();
 const mockChatState = {
   messages: [] as Array<{ id: string; role: string; parts?: unknown[] }>,
   sendMessage: mockSendMessage,
   status: "ready" as string,
   stop: mockStop,
+  setMessages: mockSetMessages,
 };
 
 vi.mock("@ai-sdk/react", () => ({
@@ -99,6 +103,8 @@ describe("NewUIContainer", () => {
     mockHomeState.view = "landing";
     mockHomeState.initialMessage = null;
     mockHomeState.selectedAgent = null;
+    mockHomeState.sessionId = null;
+    mockHomeState.resumeMessages = null;
     mockAgentState.agentId = "curator";
     mockAgentState.isHydrated = true;
     mockChatState.messages = [];
@@ -176,6 +182,7 @@ describe("NewUIContainer", () => {
     it("sends initial message when transitioning to chat", () => {
       mockHomeState.view = "chat";
       mockHomeState.initialMessage = "Hello, world!";
+      mockHomeState.sessionId = "session-123";
       mockChatState.messages = [];
 
       render(<NewUIContainer />);
@@ -186,6 +193,7 @@ describe("NewUIContainer", () => {
     it("does not send initial message if messages already exist", () => {
       mockHomeState.view = "chat";
       mockHomeState.initialMessage = "Hello, world!";
+      mockHomeState.sessionId = "session-123";
       mockChatState.messages = [{ id: "existing", role: "user" }];
 
       render(<NewUIContainer />);
@@ -196,11 +204,39 @@ describe("NewUIContainer", () => {
     it("does not send initial message if no initial message provided", () => {
       mockHomeState.view = "chat";
       mockHomeState.initialMessage = null;
+      mockHomeState.sessionId = "session-123";
       mockChatState.messages = [];
 
       render(<NewUIContainer />);
 
       expect(mockSendMessage).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("fresh chat session", () => {
+    it("clears existing messages when starting a fresh new chat", () => {
+      mockHomeState.view = "chat";
+      mockHomeState.initialMessage = "New message";
+      mockHomeState.sessionId = "new-session-456";
+      mockHomeState.resumeMessages = null; // Not resuming
+      mockChatState.messages = [{ id: "old-msg", role: "user" }]; // Old messages exist
+
+      render(<NewUIContainer />);
+
+      expect(mockSetMessages).toHaveBeenCalledWith([]);
+    });
+
+    it("does not clear messages when resuming a chat", () => {
+      mockHomeState.view = "chat";
+      mockHomeState.initialMessage = null;
+      mockHomeState.sessionId = "existing-session";
+      mockHomeState.resumeMessages = [{ id: "restored-msg", role: "user" }];
+      mockChatState.messages = [];
+
+      render(<NewUIContainer />);
+
+      // setMessages should be called with resume messages, not empty array
+      expect(mockSetMessages).not.toHaveBeenCalledWith([]);
     });
   });
 
@@ -250,6 +286,9 @@ describe("NewUIContainer", () => {
         from_agent: "curator",
         to_agent: "appraiser",
         source: "agent",
+        session_id: null,
+        is_restored: undefined,
+        restored_session_id: undefined,
       });
     });
 

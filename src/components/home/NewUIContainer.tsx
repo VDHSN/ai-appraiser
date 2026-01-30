@@ -127,6 +127,20 @@ export function NewUIContainer() {
     transport,
   });
 
+  // Clear messages when starting a fresh new chat (not resuming)
+  // This ensures the useChat hook starts with an empty state for new sessions
+  useEffect(() => {
+    if (
+      view === "chat" &&
+      sessionId &&
+      !resumeMessages &&
+      !hasInitializedRef.current &&
+      messages.length > 0
+    ) {
+      setMessages([]);
+    }
+  }, [view, sessionId, resumeMessages, messages.length, setMessages]);
+
   // Initialize with resume messages when resuming a chat
   useEffect(() => {
     if (
