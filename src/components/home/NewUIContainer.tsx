@@ -75,6 +75,13 @@ export function NewUIContainer() {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Track current session data in refs for saving on unmount/transition
+  const sessionDataRef = useRef<{
+    sessionId: string | null;
+    agentId: AgentId;
+    messages: UIMessage[];
+  }>({ sessionId: null, agentId, messages: [] });
+
   // Reset initialization state when returning to landing page
   useEffect(() => {
     if (view === "landing") {
@@ -156,22 +163,32 @@ export function NewUIContainer() {
     }
   }, [messages, agentId, setAgentId]);
 
-  // Save chat session when leaving the chat view
+  // Keep session data ref updated for save on transition
   useEffect(() => {
-    // Save when transitioning from chat to landing
-    if (
-      view === "landing" &&
-      !hasSavedRef.current &&
-      sessionId &&
-      messages.length > 0
-    ) {
-      hasSavedRef.current = true;
-      // Generate preview and save asynchronously
-      generateChatPreview(messages).then((preview) => {
-        saveSession(sessionId, agentId, messages, preview);
-      });
-    }
-  }, [view, sessionId, messages, agentId]);
+    sessionDataRef.current = { sessionId, agentId, messages };
+  }, [sessionId, agentId, messages]);
+
+  // Save chat session when transitioning from chat to landing
+  // Uses cleanup effect to capture data before state is cleared
+  useEffect(() => {
+    if (view !== "chat") return;
+
+    // Return cleanup function that saves when leaving chat view
+    return () => {
+      const {
+        sessionId: sid,
+        agentId: aid,
+        messages: msgs,
+      } = sessionDataRef.current;
+      if (!hasSavedRef.current && sid && msgs.length > 0) {
+        hasSavedRef.current = true;
+        // Generate preview and save asynchronously
+        generateChatPreview(msgs).then((preview) => {
+          saveSession(sid, aid, msgs, preview);
+        });
+      }
+    };
+  }, [view]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
