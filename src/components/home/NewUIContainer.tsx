@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useRef, useState, FormEvent, useMemo } from "react";
-import { useChat } from "@ai-sdk/react";
+import { useChat, type UIMessage } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { analytics } from "@/lib/analytics";
 import { useHome } from "@/lib/home";
@@ -18,12 +18,60 @@ import { UserMenu } from "@/components/auth";
 import { BrandLogo } from "./BrandLogo";
 import type { AgentId } from "@/lib/agent/types";
 
+/**
+ * Result of an agent switch tool invocation.
+ */
+interface AgentSwitchResult {
+  switched: boolean;
+  targetAgent: AgentId;
+}
+
+/**
+ * Searches messages for an agent switch tool invocation result.
+ * Returns the target agent if a switch was requested, null otherwise.
+ */
+function findAgentSwitchInMessages(
+  messages: UIMessage[],
+  currentAgentId: AgentId,
+): AgentId | null {
+  for (const message of messages) {
+    if (message.role !== "assistant" || !message.parts) continue;
+
+    for (const part of message.parts) {
+      if (
+        part.type !== "tool-invocation" ||
+        !("toolName" in part) ||
+        part.toolName !== "switchAgentMode"
+      ) {
+        continue;
+      }
+
+      const partAny = part as Record<string, unknown>;
+      const result = (partAny.result ?? partAny.output) as
+        | AgentSwitchResult
+        | undefined;
+
+      if (result?.switched && result.targetAgent !== currentAgentId) {
+        return result.targetAgent;
+      }
+    }
+  }
+  return null;
+}
+
 export function NewUIContainer() {
   const { view, initialMessage, selectedAgent, resetToLanding } = useHome();
   const { agentId, setAgentId, agent, isHydrated } = useAgent();
   const hasInitializedRef = useRef(false);
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Reset initialization state when returning to landing page
+  useEffect(() => {
+    if (view === "landing") {
+      hasInitializedRef.current = false;
+    }
+  }, [view]);
 
   // Set the agent based on the selected agent from landing page
   useEffect(() => {
@@ -72,30 +120,14 @@ export function NewUIContainer() {
 
   // Handle agent-initiated mode switches
   useEffect(() => {
-    for (const message of messages) {
-      if (message.role === "assistant" && message.parts) {
-        for (const part of message.parts) {
-          if (
-            part.type === "tool-invocation" &&
-            "toolName" in part &&
-            part.toolName === "switchAgentMode"
-          ) {
-            const partAny = part as Record<string, unknown>;
-            const result = (partAny.result ?? partAny.output) as
-              | { switched: boolean; targetAgent: AgentId }
-              | undefined;
-            if (result?.switched && result.targetAgent !== agentId) {
-              analytics.track("user:agent_switched", {
-                from_agent: agentId,
-                to_agent: result.targetAgent,
-                source: "agent",
-              });
-              setAgentId(result.targetAgent);
-              return;
-            }
-          }
-        }
-      }
+    const targetAgent = findAgentSwitchInMessages(messages, agentId);
+    if (targetAgent) {
+      analytics.track("user:agent_switched", {
+        from_agent: agentId,
+        to_agent: targetAgent,
+        source: "agent",
+      });
+      setAgentId(targetAgent);
     }
   }, [messages, agentId, setAgentId]);
 
