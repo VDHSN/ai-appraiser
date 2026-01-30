@@ -1,0 +1,96 @@
+name: Vercel Preview Notification
+
+on:
+  deployment_status:
+
+jobs:
+  notify:
+    if: |
+      (github.event.deployment_status.state == 'success' || github.event.deployment_status.state == 'failure') &&
+      github.event.deployment_status.environment != 'Production'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+      deployments: read
+
+    steps:
+      - name: Get PR information
+        id: pr_info
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sha = context.payload.deployment.sha;
+            const ref = context.payload.deployment.ref;
+
+            // Find PR associated with this deployment
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${ref}`
+            });
+
+            if (prs.length === 0) {
+              // Try finding by SHA if branch lookup fails
+              const { data: prsBySha } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                commit_sha: sha
+              });
+
+              if (prsBySha.length === 0) {
+                core.setOutput('found', 'false');
+                return;
+              }
+
+              const pr = prsBySha[0];
+              core.setOutput('found', 'true');
+              core.setOutput('number', pr.number);
+              core.setOutput('title', pr.title);
+              core.setOutput('url', pr.html_url);
+              core.setOutput('author', pr.user.login);
+              core.setOutput('description', pr.body || 'No description provided.');
+              return;
+            }
+
+            const pr = prs[0];
+            core.setOutput('found', 'true');
+            core.setOutput('number', pr.number);
+            core.setOutput('title', pr.title);
+            core.setOutput('url', pr.html_url);
+            core.setOutput('author', pr.user.login);
+            core.setOutput('description', pr.body || 'No description provided.');
+
+      - name: Post to Keybase
+        if: steps.pr_info.outputs.found == 'true'
+        env:
+          KEYBASE_WEBHOOK_URL: ${{ secrets.KEYBASE_WEBHOOK_URL }}
+          DEPLOYMENT_STATE: ${{ github.event.deployment_status.state }}
+          PREVIEW_URL: ${{ github.event.deployment_status.environment_url }}
+          PR_NUMBER: ${{ steps.pr_info.outputs.number }}
+          PR_TITLE: ${{ steps.pr_info.outputs.title }}
+          PR_URL: ${{ steps.pr_info.outputs.url }}
+          PR_AUTHOR: ${{ steps.pr_info.outputs.author }}
+          PR_DESCRIPTION: ${{ steps.pr_info.outputs.description }}
+        run: |
+          if [ "$DEPLOYMENT_STATE" = "success" ]; then
+            STATUS_EMOJI="✅"
+            STATUS_TEXT="deployed successfully"
+          else
+            STATUS_EMOJI="❌"
+            STATUS_TEXT="failed to deploy"
+          fi
+
+          MESSAGE="${STATUS_EMOJI} *PR #${PR_NUMBER} ${STATUS_TEXT}*
+
+          *${PR_TITLE}*
+          by @${PR_AUTHOR}
+
+          ${PR_DESCRIPTION}
+
+          🔗 PR: ${PR_URL}
+          🌐 Preview: ${PREVIEW_URL}"
+
+          curl -X POST "$KEYBASE_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg msg "$MESSAGE" '{msg: $msg}')"
