@@ -49,6 +49,7 @@ export function SearchBox({ onSubmit, disabled = false }: SearchBoxProps) {
           onKeyDown={handleKeyDown}
           placeholder="Search for rare collectibles, vintage watches, art..."
           disabled={disabled}
+          data-testid="search-input"
           className="w-full rounded-full border border-zinc-300 bg-white px-6 py-4 text-lg shadow-sm transition-shadow duration-200 placeholder:text-zinc-400 hover:shadow-md focus:border-[var(--accent-gold)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-gold)] focus:ring-opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:placeholder:text-zinc-500 sm:text-xl"
         />
       </div>
@@ -61,6 +62,7 @@ export function SearchBox({ onSubmit, disabled = false }: SearchBoxProps) {
           onClick={() => handleSubmit("curator")}
           disabled={!hasInput || disabled}
           className="min-w-[120px]"
+          data-testid="search-button-curate"
         >
           Curate
         </Button>
@@ -71,6 +73,7 @@ export function SearchBox({ onSubmit, disabled = false }: SearchBoxProps) {
           onClick={() => handleSubmit("appraiser")}
           disabled={!hasInput || disabled}
           className="min-w-[120px]"
+          data-testid="search-button-appraise"
         >
           Appraise
         </Button>
