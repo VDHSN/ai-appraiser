@@ -40,6 +40,11 @@ export interface AnalyticsEvents {
     agent_id: string;
     session_id: string;
   };
+  "chat:deleted": {
+    chat_title: string;
+    agent_id: string;
+    session_id: string;
+  };
 
   // Auth client events
   "auth:sign_in_clicked": { source: AuthSource };
@@ -104,6 +109,7 @@ export interface ClientAnalyticsEvents {
   "user:agent_switched": AnalyticsEvents["user:agent_switched"];
   "agent:tool_called": AnalyticsEvents["agent:tool_called"];
   "chat:restored": AnalyticsEvents["chat:restored"];
+  "chat:deleted": AnalyticsEvents["chat:deleted"];
   "auth:sign_in_clicked": AnalyticsEvents["auth:sign_in_clicked"];
   "auth:sign_up_clicked": AnalyticsEvents["auth:sign_up_clicked"];
   "auth:prompt_shown": AnalyticsEvents["auth:prompt_shown"];

@@ -49,7 +49,7 @@ export function ChatInput({
           onKeyDown={handleKeyDown}
           placeholder="Search for art deco lamps, vintage watches..."
           rows={2}
-          className="min-h-[44px] flex-1 resize-none rounded-lg border border-zinc-300 bg-white px-3 py-3 text-base placeholder:text-zinc-400 focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] dark:border-zinc-700 dark:bg-zinc-900 dark:placeholder:text-zinc-500 sm:min-h-[48px] sm:px-4 sm:py-3 sm:text-sm"
+          className="min-h-[44px] flex-1 resize-none rounded-lg border border-zinc-300 bg-white px-3 py-3 text-base placeholder:text-zinc-400 focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2 dark:border-zinc-700 dark:bg-zinc-900 dark:placeholder:text-zinc-500 sm:min-h-[48px] sm:px-4 sm:py-3 sm:text-sm"
           disabled={isLoading}
         />
         {isLoading ? (

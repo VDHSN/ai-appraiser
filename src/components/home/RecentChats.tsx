@@ -3,17 +3,20 @@
 /**
  * Displays a list of recent chat sessions on the landing page.
  * Allows users to quickly resume previous conversations.
+ * Supports swipe-to-delete on mobile and trash icon on desktop.
  */
 
-import { useSyncExternalStore, useCallback } from "react";
+import { useSyncExternalStore, useCallback, useState } from "react";
 import { analytics } from "@/lib/analytics";
 import { useHome } from "@/lib/home";
 import {
   getRecentSessionSummaries,
   getSession,
+  deleteSession,
   STORAGE_CHANGE_EVENT,
   type ChatSessionSummary,
 } from "@/lib/chat-history";
+import { SwipeableChatItem } from "./SwipeableChatItem";
 
 /**
  * Format a timestamp as a relative time string.
@@ -125,6 +128,7 @@ function getServerSessionsSnapshot(): ChatSessionSummary[] {
 
 export function RecentChats() {
   const { resumeChat } = useHome();
+  const [activeSwipedId, setActiveSwipedId] = useState<string | null>(null);
 
   const sessions = useSyncExternalStore(
     subscribeToStorage,
@@ -147,6 +151,23 @@ export function RecentChats() {
     [resumeChat],
   );
 
+  const handleSwipeOpen = useCallback((id: string) => {
+    setActiveSwipedId(id);
+  }, []);
+
+  const handleDelete = useCallback((sessionId: string) => {
+    const session = getSession(sessionId);
+    if (session) {
+      analytics.track("chat:deleted", {
+        chat_title: session.preview,
+        agent_id: session.agentId,
+        session_id: session.id,
+      });
+    }
+    deleteSession(sessionId);
+    setActiveSwipedId(null);
+  }, []);
+
   if (sessions.length === 0) return null;
 
   return (
@@ -156,24 +177,31 @@ export function RecentChats() {
       </h2>
       <div className="space-y-2">
         {sessions.map((session) => (
-          <button
+          <SwipeableChatItem
             key={session.id}
-            onClick={() => handleResumeChat(session.id, session.preview)}
-            className="flex w-full items-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-left transition-colors hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
-            data-testid="recent-chat-item"
+            id={session.id}
+            isActive={activeSwipedId === session.id}
+            onSwipeOpen={handleSwipeOpen}
+            onDelete={handleDelete}
           >
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                {session.preview}
-              </p>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                {formatRelativeTime(session.updatedAt)}
-              </p>
-            </div>
-            <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-              {getAgentDisplayName(session.agentId)}
-            </span>
-          </button>
+            <button
+              onClick={() => handleResumeChat(session.id, session.preview)}
+              className="flex w-full items-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-left transition-colors hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
+              data-testid="recent-chat-item"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  {session.preview}
+                </p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  {formatRelativeTime(session.updatedAt)}
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                {getAgentDisplayName(session.agentId)}
+              </span>
+            </button>
+          </SwipeableChatItem>
         ))}
       </div>
     </div>
