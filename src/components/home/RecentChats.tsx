@@ -6,6 +6,7 @@
  */
 
 import { useSyncExternalStore, useCallback } from "react";
+import { analytics } from "@/lib/analytics";
 import { useHome } from "@/lib/home";
 import {
   getRecentSessionSummaries,
@@ -121,9 +122,14 @@ export function RecentChats() {
   );
 
   const handleResumeChat = useCallback(
-    (sessionId: string) => {
+    (sessionId: string, preview: string) => {
       const session = getSession(sessionId);
       if (session) {
+        analytics.track("chat:restored", {
+          chat_title: preview,
+          agent_id: session.agentId,
+          session_id: session.id,
+        });
         resumeChat(session.id, session.agentId, session.messages);
       }
     },
@@ -141,7 +147,7 @@ export function RecentChats() {
         {sessions.map((session) => (
           <button
             key={session.id}
-            onClick={() => handleResumeChat(session.id)}
+            onClick={() => handleResumeChat(session.id, session.preview)}
             className="flex w-full items-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-left transition-colors hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
             data-testid="recent-chat-item"
           >

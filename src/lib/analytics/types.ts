@@ -22,12 +22,23 @@ export interface AnalyticsEvents {
     from_agent: string;
     to_agent: string;
     source: EventSource;
+    session_id: string | null;
+    is_restored: boolean;
+    restored_session_id: string | null;
   };
   "agent:tool_called": {
     tool_name: string;
     tool_params: unknown;
     agent_id: string;
     source: "agent";
+    session_id: string | null;
+    is_restored: boolean;
+    restored_session_id: string | null;
+  };
+  "chat:restored": {
+    chat_title: string;
+    agent_id: string;
+    session_id: string;
   };
 
   // Auth client events
@@ -58,6 +69,9 @@ export interface AnalyticsEvents {
     agent_id: string;
     content: string;
     message_length: number;
+    session_id: string | null;
+    is_restored: boolean;
+    restored_session_id: string | null;
   };
   "chat:agent_response": {
     agent_id: string;
@@ -65,6 +79,9 @@ export interface AnalyticsEvents {
     response_length: number;
     has_tool_calls: boolean;
     tool_count: number;
+    session_id: string | null;
+    is_restored: boolean;
+    restored_session_id: string | null;
   };
 
   // Auth server events (from Clerk webhooks)
@@ -86,6 +103,7 @@ export interface ClientAnalyticsEvents {
   "user:link_clicked": AnalyticsEvents["user:link_clicked"];
   "user:agent_switched": AnalyticsEvents["user:agent_switched"];
   "agent:tool_called": AnalyticsEvents["agent:tool_called"];
+  "chat:restored": AnalyticsEvents["chat:restored"];
   "auth:sign_in_clicked": AnalyticsEvents["auth:sign_in_clicked"];
   "auth:sign_up_clicked": AnalyticsEvents["auth:sign_up_clicked"];
   "auth:prompt_shown": AnalyticsEvents["auth:prompt_shown"];

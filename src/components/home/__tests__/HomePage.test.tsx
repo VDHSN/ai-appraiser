@@ -78,6 +78,9 @@ describe("HomePage", () => {
       from_agent: "curator",
       to_agent: "appraiser",
       source: "user",
+      session_id: null,
+      is_restored: false,
+      restored_session_id: null,
     });
     expect(mockStartChat).toHaveBeenCalledWith("antique vase", "appraiser");
   });

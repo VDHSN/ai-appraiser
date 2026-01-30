@@ -25,7 +25,7 @@ function isToolPart(
 
 export function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === "user";
-  const { agentId } = useAgent();
+  const { agentId, sessionId, isRestored, restoredSessionId } = useAgent();
   const trackedToolCalls = useRef<Set<string>>(new Set());
 
   // Track tool calls when they complete
@@ -40,11 +40,14 @@ export function ChatMessage({ message }: ChatMessageProps) {
             tool_params: part.input,
             agent_id: agentId,
             source: "agent",
+            session_id: sessionId,
+            is_restored: isRestored,
+            restored_session_id: restoredSessionId,
           });
         }
       }
     }
-  }, [message.parts, agentId]);
+  }, [message.parts, agentId, sessionId, isRestored, restoredSessionId]);
 
   return (
     <div
