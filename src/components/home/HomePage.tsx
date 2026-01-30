@@ -10,6 +10,7 @@ import { analytics } from "@/lib/analytics";
 import { UserMenu } from "@/components/auth";
 import { BrandLogo } from "./BrandLogo";
 import { SearchBox } from "./SearchBox";
+import { RecentChats } from "./RecentChats";
 import { useHome } from "@/lib/home";
 import type { AgentId } from "@/lib/agent/types";
 
@@ -40,7 +41,7 @@ export function HomePage() {
       </header>
 
       {/* Main content - centered vertically */}
-      <main className="flex flex-1 flex-col items-center justify-center px-4 pb-32">
+      <main className="flex flex-1 flex-col items-center justify-center px-4 pb-16">
         <div className="flex flex-col items-center gap-10">
           <BrandLogo />
 
@@ -49,6 +50,8 @@ export function HomePage() {
           </p>
 
           <SearchBox onSubmit={handleSubmit} />
+
+          <RecentChats />
         </div>
       </main>
     </div>

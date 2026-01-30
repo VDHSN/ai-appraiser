@@ -11,6 +11,7 @@ import { DefaultChatTransport } from "ai";
 import { analytics } from "@/lib/analytics";
 import { useHome } from "@/lib/home";
 import { useAgent } from "@/lib/agent";
+import { saveSession, generateChatPreview } from "@/lib/chat-history";
 import { HomePage } from "./HomePage";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { ChatInput } from "@/components/chat/ChatInput";
@@ -60,9 +61,17 @@ function findAgentSwitchInMessages(
 }
 
 export function NewUIContainer() {
-  const { view, initialMessage, selectedAgent, resetToLanding } = useHome();
+  const {
+    view,
+    initialMessage,
+    selectedAgent,
+    sessionId,
+    resumeMessages,
+    resetToLanding,
+  } = useHome();
   const { agentId, setAgentId, agent, isHydrated } = useAgent();
   const hasInitializedRef = useRef(false);
+  const hasSavedRef = useRef(false);
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -70,6 +79,7 @@ export function NewUIContainer() {
   useEffect(() => {
     if (view === "landing") {
       hasInitializedRef.current = false;
+      hasSavedRef.current = false;
     }
   }, [view]);
 
@@ -94,24 +104,39 @@ export function NewUIContainer() {
     [agentId],
   );
 
-  const { messages, sendMessage, status, stop } = useChat({
+  const { messages, sendMessage, status, stop, setMessages } = useChat({
     transport,
   });
 
+  // Initialize with resume messages when resuming a chat
+  useEffect(() => {
+    if (
+      view === "chat" &&
+      resumeMessages &&
+      resumeMessages.length > 0 &&
+      messages.length === 0 &&
+      !hasInitializedRef.current
+    ) {
+      hasInitializedRef.current = true;
+      setMessages(resumeMessages);
+    }
+  }, [view, resumeMessages, messages.length, setMessages]);
+
   const isLoading = status === "submitted" || status === "streaming";
 
-  // Send the initial message when transitioning to chat
+  // Send the initial message when transitioning to chat (new chat, not resume)
   useEffect(() => {
     if (
       view === "chat" &&
       initialMessage &&
+      !resumeMessages && // Don't send if resuming
       !hasInitializedRef.current &&
       messages.length === 0
     ) {
       hasInitializedRef.current = true;
       sendMessage({ text: initialMessage });
     }
-  }, [view, initialMessage, messages.length, sendMessage]);
+  }, [view, initialMessage, resumeMessages, messages.length, sendMessage]);
 
   // Auto-scroll to bottom when messages update
   useEffect(() => {
@@ -130,6 +155,23 @@ export function NewUIContainer() {
       setAgentId(targetAgent);
     }
   }, [messages, agentId, setAgentId]);
+
+  // Save chat session when leaving the chat view
+  useEffect(() => {
+    // Save when transitioning from chat to landing
+    if (
+      view === "landing" &&
+      !hasSavedRef.current &&
+      sessionId &&
+      messages.length > 0
+    ) {
+      hasSavedRef.current = true;
+      // Generate preview and save asynchronously
+      generateChatPreview(messages).then((preview) => {
+        saveSession(sessionId, agentId, messages, preview);
+      });
+    }
+  }, [view, sessionId, messages, agentId]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
