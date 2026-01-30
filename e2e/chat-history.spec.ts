@@ -10,7 +10,8 @@ async function clearChatHistory(page: Page): Promise<void> {
 }
 
 /**
- * Helper to inject a mock chat session into localStorage for testing
+ * Helper to inject a mock chat session into localStorage for testing.
+ * Messages use the UIMessage 'parts' format, not 'content'.
  */
 async function injectMockChatSession(
   page: Page,
@@ -29,10 +30,11 @@ async function injectMockChatSession(
       agentId: sessionData.agentId,
       createdAt: now - 60000, // 1 minute ago
       updatedAt: now - 60000,
+      // UIMessage uses 'parts' array format, not 'content' string
       messages: sessionData.messages.map((m) => ({
         id: m.id,
         role: m.role,
-        content: m.content,
+        parts: [{ type: "text", text: m.content }],
         createdAt: new Date(now - 60000),
       })),
     };
@@ -202,11 +204,12 @@ test.describe("Chat History", () => {
           agentId: "curator",
           createdAt: now - 3600000, // 1 hour ago
           updatedAt: now - 3600000,
+          // UIMessage uses 'parts' array format
           messages: [
             {
               id: "m1",
               role: "user",
-              content: "Old message",
+              parts: [{ type: "text", text: "Old message" }],
               createdAt: new Date(now - 3600000),
             },
           ],
@@ -221,7 +224,7 @@ test.describe("Chat History", () => {
             {
               id: "m2",
               role: "user",
-              content: "New message",
+              parts: [{ type: "text", text: "New message" }],
               createdAt: new Date(now - 60000),
             },
           ],
