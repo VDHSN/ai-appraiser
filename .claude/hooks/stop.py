@@ -24,7 +24,7 @@ def get_log_path() -> Path:
 
 
 def speak(message: str) -> None:
-    """Speak message using macOS say command."""
+    """Speak message using macOS say command. Fails gracefully on non-macOS systems."""
     try:
         subprocess.run(
             ["say", "-v", "Samantha", message],
@@ -32,8 +32,8 @@ def speak(message: str) -> None:
             capture_output=True,
             timeout=10,
         )
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        pass  # Silently fail if say is unavailable
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        pass  # Silently fail if say is unavailable or on non-macOS systems
 
 
 def log_stop(input_data: dict, notify: bool) -> None:
