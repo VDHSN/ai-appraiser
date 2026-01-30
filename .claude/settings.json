@@ -21,6 +21,17 @@
     ]
   },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run .claude/hooks/pre_tool_use.py"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
@@ -28,6 +39,26 @@
           {
             "type": "command",
             "command": "bash -c 'FILE_PATH=$(cat | jq -r \".tool_input.file_path\") && [[ \"$FILE_PATH\" =~ \\.(ts|tsx|js|jsx|json|md)$ ]] && pnpm prettier --write \"$FILE_PATH\" && pnpm eslint --fix \"$FILE_PATH\" 2>/dev/null || true'"
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run .claude/hooks/post_tool_use.py"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run .claude/hooks/stop.py --notify"
           }
         ]
       }
