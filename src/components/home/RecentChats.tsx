@@ -68,6 +68,9 @@ export function resetSessionsCache(): void {
 
 // Subscribe to storage changes from other tabs
 function subscribeToStorage(callback: () => void): () => void {
+  // Invalidate cache on mount to pick up same-tab changes (e.g., after saving a chat)
+  cachedSessionsJson = "";
+
   const handleStorage = (e: StorageEvent) => {
     if (e.key === STORAGE_KEY) {
       // Invalidate cache on storage change
