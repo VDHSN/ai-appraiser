@@ -6,16 +6,27 @@
  * Transitions to chat view when user submits a query.
  */
 
+import { analytics } from "@/lib/analytics";
 import { UserMenu } from "@/components/auth";
 import { BrandLogo } from "./BrandLogo";
 import { SearchBox } from "./SearchBox";
 import { useHome } from "@/lib/home";
 import type { AgentId } from "@/lib/agent/types";
 
+const DEFAULT_AGENT: AgentId = "curator";
+
 export function HomePage() {
   const { startChat } = useHome();
 
   const handleSubmit = (message: string, agent: AgentId) => {
+    // Track agent selection if different from default
+    if (agent !== DEFAULT_AGENT) {
+      analytics.track("user:agent_switched", {
+        from_agent: DEFAULT_AGENT,
+        to_agent: agent,
+        source: "user",
+      });
+    }
     startChat(message, agent);
   };
 
