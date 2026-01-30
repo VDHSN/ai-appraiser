@@ -238,6 +238,62 @@ describe("NewUIContainer", () => {
       // setMessages should be called with resume messages, not empty array
       expect(mockSetMessages).not.toHaveBeenCalledWith([]);
     });
+
+    it("does not clear messages when messages array is already empty", () => {
+      mockHomeState.view = "chat";
+      mockHomeState.initialMessage = "New message";
+      mockHomeState.sessionId = "new-session-789";
+      mockHomeState.resumeMessages = null;
+      mockChatState.messages = []; // Already empty
+
+      render(<NewUIContainer />);
+
+      // Should not call setMessages since there's nothing to clear
+      expect(mockSetMessages).not.toHaveBeenCalledWith([]);
+    });
+
+    it("clears messages with multiple old messages from previous session", () => {
+      mockHomeState.view = "chat";
+      mockHomeState.initialMessage = "Fresh start";
+      mockHomeState.sessionId = "brand-new-session";
+      mockHomeState.resumeMessages = null;
+      mockChatState.messages = [
+        { id: "old-1", role: "user" },
+        { id: "old-2", role: "assistant" },
+        { id: "old-3", role: "user" },
+        { id: "old-4", role: "assistant" },
+      ]; // Multiple old messages
+
+      render(<NewUIContainer />);
+
+      expect(mockSetMessages).toHaveBeenCalledWith([]);
+    });
+
+    it("does not clear messages when sessionId is null", () => {
+      mockHomeState.view = "chat";
+      mockHomeState.initialMessage = "New message";
+      mockHomeState.sessionId = null; // No session ID
+      mockHomeState.resumeMessages = null;
+      mockChatState.messages = [{ id: "old-msg", role: "user" }];
+
+      render(<NewUIContainer />);
+
+      // Should not clear without a valid sessionId
+      expect(mockSetMessages).not.toHaveBeenCalledWith([]);
+    });
+
+    it("clears messages regardless of agent type", () => {
+      mockHomeState.view = "chat";
+      mockHomeState.initialMessage = "Appraise this item";
+      mockHomeState.sessionId = "appraiser-session";
+      mockHomeState.selectedAgent = "appraiser";
+      mockHomeState.resumeMessages = null;
+      mockChatState.messages = [{ id: "curator-old-msg", role: "user" }];
+
+      render(<NewUIContainer />);
+
+      expect(mockSetMessages).toHaveBeenCalledWith([]);
+    });
   });
 
   describe("agent selection from landing", () => {

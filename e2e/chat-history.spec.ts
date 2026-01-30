@@ -279,3 +279,204 @@ test.describe("Chat History", () => {
     await expect(secondChat.getByText("Older conversation")).toBeVisible();
   });
 });
+
+test.describe("Fresh Chat Sessions", () => {
+  test.beforeEach(async ({ page }) => {
+    // Navigate to the page first, then clear localStorage
+    await page.goto("/");
+    await clearChatHistory(page);
+    await page.reload();
+  });
+
+  test("starting a second chat from homepage creates a fresh conversation", async ({
+    page,
+  }) => {
+    const searchInput = page.locator('[data-testid="search-input"]');
+    const curateButton = page.locator('[data-testid="search-button-curate"]');
+    const brandLogo = page.getByRole("button", { name: "Return to home" });
+
+    // Start first chat
+    await searchInput.fill("Tell me about vintage watches");
+    await curateButton.click();
+
+    // Wait for user message and assistant response
+    await expect(page.locator('[data-testid="chat-message-user"]')).toBeVisible(
+      { timeout: 5_000 },
+    );
+    await expect(
+      page.locator('[data-testid="chat-message-assistant"]'),
+    ).toBeVisible({ timeout: 30_000 });
+
+    // Verify first chat has the expected message
+    await expect(page.getByText("Tell me about vintage watches")).toBeVisible();
+
+    // Return to homepage
+    await brandLogo.click();
+    await expect(searchInput).toBeVisible({ timeout: 5_000 });
+
+    // Start second chat with different query
+    await searchInput.fill("What are antique clocks worth?");
+    await curateButton.click();
+
+    // Wait for user message in second chat
+    await expect(page.locator('[data-testid="chat-message-user"]')).toBeVisible(
+      { timeout: 5_000 },
+    );
+
+    // CRITICAL: Verify only the new message is shown, not the old one
+    // This is the core test - messages from first chat should NOT appear
+    await expect(
+      page.getByText("What are antique clocks worth?"),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Tell me about vintage watches"),
+    ).not.toBeVisible();
+  });
+
+  test("each new chat from homepage gets a unique session", async ({
+    page,
+  }) => {
+    const searchInput = page.locator('[data-testid="search-input"]');
+    const curateButton = page.locator('[data-testid="search-button-curate"]');
+    const brandLogo = page.getByRole("button", { name: "Return to home" });
+
+    // Start first chat
+    await searchInput.fill("First chat query");
+    await curateButton.click();
+    await expect(page.locator('[data-testid="chat-message-user"]')).toBeVisible(
+      { timeout: 5_000 },
+    );
+    await expect(
+      page.locator('[data-testid="chat-message-assistant"]'),
+    ).toBeVisible({ timeout: 30_000 });
+
+    // Return to homepage
+    await brandLogo.click();
+    await expect(searchInput).toBeVisible({ timeout: 5_000 });
+
+    // Start second chat
+    await searchInput.fill("Second chat query");
+    await curateButton.click();
+    await expect(page.locator('[data-testid="chat-message-user"]')).toBeVisible(
+      { timeout: 5_000 },
+    );
+    await expect(
+      page.locator('[data-testid="chat-message-assistant"]'),
+    ).toBeVisible({ timeout: 30_000 });
+
+    // Return to homepage again
+    await brandLogo.click();
+    await expect(searchInput).toBeVisible({ timeout: 5_000 });
+
+    // Verify BOTH sessions are saved as separate recent chats
+    await expect(page.getByText("Recent Chats")).toBeVisible({
+      timeout: 5_000,
+    });
+    const chatItems = page.locator('[data-testid="recent-chat-item"]');
+    await expect(chatItems).toHaveCount(2);
+  });
+
+  test("new chat after resuming a previous chat starts fresh", async ({
+    page,
+  }) => {
+    // Inject a mock chat session to resume
+    await injectMockChatSession(page, {
+      id: "session-to-resume",
+      preview: "Previous conversation about art",
+      agentId: "curator",
+      messages: [
+        { id: "msg-1", role: "user", content: "Tell me about Renaissance art" },
+        {
+          id: "msg-2",
+          role: "assistant",
+          content: "Renaissance art flourished in Europe...",
+        },
+      ],
+    });
+    await page.reload();
+
+    // Resume the previous chat
+    const chatItem = page.locator('[data-testid="recent-chat-item"]');
+    await chatItem.click();
+
+    // Verify resumed messages are shown
+    await expect(page.getByText("Tell me about Renaissance art")).toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(page.getByText(/Renaissance art flourished/)).toBeVisible();
+
+    // Return to homepage
+    const brandLogo = page.getByRole("button", { name: "Return to home" });
+    await brandLogo.click();
+
+    const searchInput = page.locator('[data-testid="search-input"]');
+    await expect(searchInput).toBeVisible({ timeout: 5_000 });
+
+    // Start a NEW chat (not resuming)
+    await searchInput.fill("Tell me about modern sculpture");
+    const curateButton = page.locator('[data-testid="search-button-curate"]');
+    await curateButton.click();
+
+    // Wait for new chat to load
+    await expect(page.locator('[data-testid="chat-message-user"]')).toBeVisible(
+      { timeout: 5_000 },
+    );
+
+    // CRITICAL: Verify only new message is shown, not the resumed session's messages
+    await expect(
+      page.getByText("Tell me about modern sculpture"),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Tell me about Renaissance art"),
+    ).not.toBeVisible();
+    await expect(
+      page.getByText(/Renaissance art flourished/),
+    ).not.toBeVisible();
+  });
+
+  test("switching agents on new chat starts fresh without previous messages", async ({
+    page,
+  }) => {
+    const searchInput = page.locator('[data-testid="search-input"]');
+    const curateButton = page.locator('[data-testid="search-button-curate"]');
+    const appraiseButton = page.locator(
+      '[data-testid="search-button-appraise"]',
+    );
+    const brandLogo = page.getByRole("button", { name: "Return to home" });
+
+    // Start a chat with Curator
+    await searchInput.fill("Find me some vintage items");
+    await curateButton.click();
+    await expect(page.locator('[data-testid="chat-message-user"]')).toBeVisible(
+      { timeout: 5_000 },
+    );
+    await expect(
+      page.locator('[data-testid="chat-message-assistant"]'),
+    ).toBeVisible({ timeout: 30_000 });
+
+    // Verify we're using Curator
+    await expect(page.getByText("Curator", { exact: true })).toBeVisible();
+
+    // Return to homepage
+    await brandLogo.click();
+    await expect(searchInput).toBeVisible({ timeout: 5_000 });
+
+    // Start a NEW chat with Appraiser
+    await searchInput.fill("How much is this worth?");
+    await appraiseButton.click();
+
+    // Wait for new chat
+    await expect(page.locator('[data-testid="chat-message-user"]')).toBeVisible(
+      { timeout: 5_000 },
+    );
+
+    // Verify we're using Appraiser
+    await expect(page.getByText("Appraiser", { exact: true })).toBeVisible();
+
+    // Verify only the new message is shown
+    await expect(page.getByText("How much is this worth?")).toBeVisible();
+    await expect(
+      page.getByText("Find me some vintage items"),
+    ).not.toBeVisible();
+  });
+});
