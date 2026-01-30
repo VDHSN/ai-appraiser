@@ -62,3 +62,6 @@ node-compile-cache/
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+# claude code hooks logs
+/logs/*.json
