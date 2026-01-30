@@ -37,8 +37,11 @@ async function injectMockChatSession(
       })),
     };
 
-    const storage = { sessions: [session] };
-    localStorage.setItem("ai-appraiser-chat-history", JSON.stringify(storage));
+    // Storage format is a plain array, not wrapped in { sessions: [...] }
+    const existingData = localStorage.getItem("ai-appraiser-chat-history");
+    const sessions = existingData ? JSON.parse(existingData) : [];
+    sessions.push(session);
+    localStorage.setItem("ai-appraiser-chat-history", JSON.stringify(sessions));
   }, session);
 }
 
@@ -130,7 +133,10 @@ test.describe("Chat History", () => {
     await chatItem.click();
 
     // Verify we're now in chat view by checking for the header agent name
-    await expect(page.getByText("Appraiser")).toBeVisible({ timeout: 5_000 });
+    // Use exact match to avoid matching "apprAIser" in the brand logo
+    await expect(page.getByText("Appraiser", { exact: true })).toBeVisible({
+      timeout: 5_000,
+    });
 
     // Verify the previous messages are restored
     await expect(
@@ -221,9 +227,10 @@ test.describe("Chat History", () => {
           ],
         },
       ];
+      // Storage format is a plain array
       localStorage.setItem(
         "ai-appraiser-chat-history",
-        JSON.stringify({ sessions }),
+        JSON.stringify(sessions),
       );
     });
 

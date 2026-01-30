@@ -50,7 +50,10 @@ test.describe("Smoke Tests", () => {
     );
 
     // Verify the header shows "Appraiser" indicating correct agent
-    await expect(page.getByText("Appraiser")).toBeVisible({ timeout: 5_000 });
+    // Use exact match to avoid matching "apprAIser" in the brand logo
+    await expect(page.getByText("Appraiser", { exact: true })).toBeVisible({
+      timeout: 5_000,
+    });
   });
 
   test("landing page displays correctly", async ({ page }) => {
