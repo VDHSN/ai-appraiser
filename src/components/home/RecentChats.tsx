@@ -11,6 +11,7 @@ import { useHome } from "@/lib/home";
 import {
   getRecentSessionSummaries,
   getSession,
+  STORAGE_CHANGE_EVENT,
   type ChatSessionSummary,
 } from "@/lib/chat-history";
 
@@ -66,26 +67,33 @@ export function resetSessionsCache(): void {
   cachedSessionsJson = "[]";
 }
 
-// Subscribe to storage changes from other tabs
+// Subscribe to storage changes (both cross-tab and same-tab)
 function subscribeToStorage(callback: () => void): () => void {
   // Invalidate cache on mount to pick up same-tab changes (e.g., after saving a chat)
   cachedSessionsJson = "";
 
+  const handleStorageChange = () => {
+    cachedSessionsJson = "";
+    callback();
+  };
+
+  // Cross-tab changes via browser StorageEvent
   const handleStorage = (e: StorageEvent) => {
     if (e.key === STORAGE_KEY) {
-      // Invalidate cache on storage change
-      cachedSessionsJson = "";
-      callback();
+      handleStorageChange();
     }
   };
 
   if (typeof window !== "undefined") {
     window.addEventListener("storage", handleStorage);
+    // Same-tab changes via custom event from storage module
+    window.addEventListener(STORAGE_CHANGE_EVENT, handleStorageChange);
   }
 
   return () => {
     if (typeof window !== "undefined") {
       window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(STORAGE_CHANGE_EVENT, handleStorageChange);
     }
   };
 }
