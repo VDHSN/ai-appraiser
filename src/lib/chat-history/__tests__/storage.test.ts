@@ -9,6 +9,7 @@ import {
   clearAllSessions,
   setStorageProvider,
   resetStorageProvider,
+  STORAGE_CHANGE_EVENT,
 } from "../storage";
 import { createMemoryStorageProvider } from "../interfaces";
 import type { ChatSession } from "../types";
@@ -230,6 +231,71 @@ describe("chat history storage", () => {
 
       clearAllSessions();
       expect(getAllSessions()).toHaveLength(0);
+    });
+  });
+
+  describe("same-tab storage notifications", () => {
+    it("exports STORAGE_CHANGE_EVENT constant", () => {
+      expect(STORAGE_CHANGE_EVENT).toBe("ai-appraiser-chat-history-change");
+    });
+
+    it("dispatches custom event when saveSession is called", () => {
+      const handler = vi.fn();
+      window.addEventListener(STORAGE_CHANGE_EVENT, handler);
+
+      saveSession(
+        "test-1",
+        "curator",
+        [{ id: "msg-1", role: "user", parts: [] }],
+        "Test",
+      );
+
+      expect(handler).toHaveBeenCalledTimes(1);
+      window.removeEventListener(STORAGE_CHANGE_EVENT, handler);
+    });
+
+    it("dispatches custom event when deleteSession is called", () => {
+      saveSession(
+        "test-1",
+        "curator",
+        [{ id: "msg-1", role: "user", parts: [] }],
+        "Test",
+      );
+
+      const handler = vi.fn();
+      window.addEventListener(STORAGE_CHANGE_EVENT, handler);
+
+      deleteSession("test-1");
+
+      expect(handler).toHaveBeenCalledTimes(1);
+      window.removeEventListener(STORAGE_CHANGE_EVENT, handler);
+    });
+
+    it("dispatches custom event when clearAllSessions is called", () => {
+      saveSession(
+        "test-1",
+        "curator",
+        [{ id: "msg-1", role: "user", parts: [] }],
+        "Test",
+      );
+
+      const handler = vi.fn();
+      window.addEventListener(STORAGE_CHANGE_EVENT, handler);
+
+      clearAllSessions();
+
+      expect(handler).toHaveBeenCalledTimes(1);
+      window.removeEventListener(STORAGE_CHANGE_EVENT, handler);
+    });
+
+    it("does not dispatch event when saveSession has empty messages", () => {
+      const handler = vi.fn();
+      window.addEventListener(STORAGE_CHANGE_EVENT, handler);
+
+      saveSession("test-1", "curator", [], "Test");
+
+      expect(handler).not.toHaveBeenCalled();
+      window.removeEventListener(STORAGE_CHANGE_EVENT, handler);
     });
   });
 });
