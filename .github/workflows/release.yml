@@ -73,6 +73,8 @@ jobs:
       - name: Generate release notes
         run: |
           {
+            echo "See this live at https://appraiser.vdhsn.com"
+            echo ""
             echo "## Changes"
             echo ""
             cat commits.txt
