@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useSyncExternalStore, useMemo } from "react";
+import { useSyncExternalStore, useMemo, useEffect } from "react";
 import posthog from "posthog-js";
 
 type FeatureFlagValue = boolean | string | undefined;
@@ -17,9 +17,41 @@ interface FeatureFlagState {
 
 // Store for tracking PostHog feature flag loading state
 let featureFlagsLoaded = false;
+let listenerInitialized = false;
 const listeners = new Set<() => void>();
 
+function notifyListeners(): void {
+  listeners.forEach((listener) => listener());
+}
+
+function initializeListener(): void {
+  if (listenerInitialized || typeof window === "undefined") return;
+  listenerInitialized = true;
+
+  // Check if flags are already loaded (PostHog was initialized before this module)
+  try {
+    // PostHog stores feature flags in its internal state
+    // If getFeatureFlag returns a non-undefined value for a known flag,
+    // or if we can detect PostHog is ready, flags are loaded
+    const flags = posthog.featureFlags?.getFlagVariants?.();
+    if (flags && Object.keys(flags).length > 0) {
+      featureFlagsLoaded = true;
+    }
+  } catch {
+    // PostHog not ready yet, will wait for callback
+  }
+
+  // Set up listener for future flag loads
+  posthog.onFeatureFlags(() => {
+    featureFlagsLoaded = true;
+    notifyListeners();
+  });
+}
+
 function subscribe(callback: () => void): () => void {
+  // Initialize listener on first subscription
+  initializeListener();
+
   listeners.add(callback);
   return () => listeners.delete(callback);
 }
@@ -32,22 +64,44 @@ function getServerSnapshot(): boolean {
   return false;
 }
 
-// Initialize listener for PostHog feature flags ready event
-if (typeof window !== "undefined") {
-  posthog.onFeatureFlags(() => {
-    featureFlagsLoaded = true;
-    listeners.forEach((listener) => listener());
-  });
+/**
+ * Check for URL parameter override (for development/testing).
+ * Supports: ?flag_<flagKey>=true|false|<value>
+ */
+function getUrlOverride<T extends FeatureFlagValue>(
+  flagKey: string,
+  defaultValue: T,
+): T | null {
+  if (typeof window === "undefined") return null;
+
+  const params = new URLSearchParams(window.location.search);
+  const paramKey = `flag_${flagKey.replace(/-/g, "_")}`;
+  const override = params.get(paramKey);
+
+  if (override === null) return null;
+
+  if (typeof defaultValue === "boolean") {
+    return (override === "true" || override === "1") as T;
+  }
+
+  return override as T;
 }
 
 /**
  * Compute the flag value from PostHog, converting types as needed.
+ * Also checks for URL parameter overrides for development/testing.
  */
 function computeFlagValue<T extends FeatureFlagValue>(
   flagKey: string,
   defaultValue: T,
   isLoaded: boolean,
 ): T {
+  // Check URL override first (for development/testing)
+  const urlOverride = getUrlOverride(flagKey, defaultValue);
+  if (urlOverride !== null) {
+    return urlOverride;
+  }
+
   if (!isLoaded) {
     return defaultValue;
   }
@@ -81,6 +135,28 @@ export function useFeatureFlag<T extends FeatureFlagValue>(
     getSnapshot,
     getServerSnapshot,
   );
+
+  // Re-check if flags became available (handles race conditions)
+  useEffect(() => {
+    if (!featureFlagsLoaded) {
+      const checkFlags = (): void => {
+        try {
+          const flags = posthog.featureFlags?.getFlagVariants?.();
+          if (flags && Object.keys(flags).length > 0) {
+            featureFlagsLoaded = true;
+            notifyListeners();
+          }
+        } catch {
+          // PostHog not ready
+        }
+      };
+
+      // Check immediately and after a short delay
+      checkFlags();
+      const timeout = setTimeout(checkFlags, 100);
+      return () => clearTimeout(timeout);
+    }
+  }, []);
 
   // Compute value during render instead of in an effect
   const flagValue = useMemo(
