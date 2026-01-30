@@ -15,9 +15,12 @@ import {
 
 /**
  * Format a timestamp as a relative time string.
+ * Exported for testing.
  */
-function formatRelativeTime(timestamp: number): string {
-  const now = Date.now();
+export function formatRelativeTime(
+  timestamp: number,
+  now = Date.now(),
+): string {
   const diff = now - timestamp;
 
   const minutes = Math.floor(diff / 60000);
@@ -34,8 +37,9 @@ function formatRelativeTime(timestamp: number): string {
 
 /**
  * Get the display name for an agent.
+ * Exported for testing.
  */
-function getAgentDisplayName(agentId: string): string {
+export function getAgentDisplayName(agentId: string): string {
   switch (agentId) {
     case "curator":
       return "Curator";
@@ -49,17 +53,24 @@ function getAgentDisplayName(agentId: string): string {
 // Storage key used by the chat history module
 const STORAGE_KEY = "ai-appraiser-chat-history";
 
-// Cached sessions to maintain referential stability
+// Cached sessions to maintain referential stability for useSyncExternalStore
 let cachedSessions: ChatSessionSummary[] = [];
-let cachedRaw: string | null = null;
+let cachedSessionsJson: string = "[]";
 
-// Subscribe to storage changes
+/**
+ * Reset the cache (useful for testing).
+ */
+export function resetSessionsCache(): void {
+  cachedSessions = [];
+  cachedSessionsJson = "[]";
+}
+
+// Subscribe to storage changes from other tabs
 function subscribeToStorage(callback: () => void): () => void {
-  // Listen to storage events from other tabs
   const handleStorage = (e: StorageEvent) => {
     if (e.key === STORAGE_KEY) {
-      // Invalidate cache when storage changes
-      cachedRaw = null;
+      // Invalidate cache on storage change
+      cachedSessionsJson = "";
       callback();
     }
   };
@@ -81,16 +92,17 @@ function getSessionsSnapshot(): ChatSessionSummary[] {
     return [];
   }
 
-  const raw = localStorage.getItem(STORAGE_KEY);
+  // Use the storage module which uses the abstracted StorageProvider
+  const sessions = getRecentSessionSummaries(5);
 
-  // Return cached value if storage hasn't changed
-  if (raw === cachedRaw) {
+  // Simple caching based on JSON comparison to maintain referential stability
+  const sessionsJson = JSON.stringify(sessions);
+  if (sessionsJson === cachedSessionsJson) {
     return cachedSessions;
   }
 
-  // Update cache and return new sessions
-  cachedRaw = raw;
-  cachedSessions = getRecentSessionSummaries(5);
+  cachedSessionsJson = sessionsJson;
+  cachedSessions = sessions;
   return cachedSessions;
 }
 
@@ -118,7 +130,6 @@ export function RecentChats() {
     [resumeChat],
   );
 
-  // Don't render if there are no recent sessions
   if (sessions.length === 0) return null;
 
   return (

@@ -7,36 +7,22 @@ import {
   saveSession,
   deleteSession,
   clearAllSessions,
+  setStorageProvider,
+  resetStorageProvider,
 } from "../storage";
+import { createMemoryStorageProvider } from "../interfaces";
 import type { ChatSession } from "../types";
 
-// Mock localStorage
-const localStorageMock = (() => {
-  let store: Record<string, string> = {};
-  return {
-    getItem: vi.fn((key: string) => store[key] ?? null),
-    setItem: vi.fn((key: string, value: string) => {
-      store[key] = value;
-    }),
-    removeItem: vi.fn((key: string) => {
-      delete store[key];
-    }),
-    clear: vi.fn(() => {
-      store = {};
-    }),
-  };
-})();
-
-Object.defineProperty(window, "localStorage", { value: localStorageMock });
-
 describe("chat history storage", () => {
+  let memoryStorage: ReturnType<typeof createMemoryStorageProvider>;
+
   beforeEach(() => {
-    vi.clearAllMocks();
-    localStorageMock.clear();
+    memoryStorage = createMemoryStorageProvider();
+    setStorageProvider(memoryStorage);
   });
 
   afterEach(() => {
-    localStorageMock.clear();
+    resetStorageProvider();
   });
 
   describe("generateSessionId", () => {
@@ -57,7 +43,7 @@ describe("chat history storage", () => {
       expect(getAllSessions()).toEqual([]);
     });
 
-    it("returns sessions from localStorage", () => {
+    it("returns sessions from storage", () => {
       const sessions: ChatSession[] = [
         {
           id: "test-1",
@@ -68,7 +54,7 @@ describe("chat history storage", () => {
           messages: [],
         },
       ];
-      localStorageMock.setItem(
+      memoryStorage.setItem(
         "ai-appraiser-chat-history",
         JSON.stringify(sessions),
       );
@@ -77,7 +63,7 @@ describe("chat history storage", () => {
     });
 
     it("returns empty array on parse error", () => {
-      localStorageMock.setItem("ai-appraiser-chat-history", "invalid json");
+      memoryStorage.setItem("ai-appraiser-chat-history", "invalid json");
       expect(getAllSessions()).toEqual([]);
     });
   });

@@ -1,13 +1,32 @@
 /**
  * localStorage service for persisting chat sessions.
+ * Uses StorageProvider interface to abstract localStorage access.
  */
 
 import type { UIMessage } from "@ai-sdk/react";
 import type { AgentId } from "@/lib/agent/types";
 import type { ChatSession, ChatSessionSummary } from "./types";
+import { type StorageProvider, createLocalStorageProvider } from "./interfaces";
 
 const STORAGE_KEY = "ai-appraiser-chat-history";
-const MAX_SESSIONS = 20; // Keep more than 5 to allow for cleanup
+const MAX_SESSIONS = 20;
+
+// Default storage provider using localStorage
+let storageProvider: StorageProvider = createLocalStorageProvider();
+
+/**
+ * Set a custom storage provider (useful for testing).
+ */
+export function setStorageProvider(provider: StorageProvider): void {
+  storageProvider = provider;
+}
+
+/**
+ * Reset to the default localStorage provider.
+ */
+export function resetStorageProvider(): void {
+  storageProvider = createLocalStorageProvider();
+}
 
 /**
  * Generate a unique session ID.
@@ -17,14 +36,13 @@ export function generateSessionId(): string {
 }
 
 /**
- * Get all chat sessions from localStorage.
+ * Get all chat sessions from storage.
  */
 export function getAllSessions(): ChatSession[] {
-  if (typeof window === "undefined") return [];
+  const data = storageProvider.getItem(STORAGE_KEY);
+  if (!data) return [];
 
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    if (!data) return [];
     return JSON.parse(data) as ChatSession[];
   } catch {
     return [];
@@ -35,24 +53,16 @@ export function getAllSessions(): ChatSession[] {
  * Get summaries of the most recent chat sessions.
  */
 export function getRecentSessionSummaries(limit = 5): ChatSessionSummary[] {
-  const sessions = getAllSessions();
-  return sessions
-    .sort((a, b) => b.updatedAt - a.updatedAt)
+  return sortSessionsByRecent(getAllSessions())
     .slice(0, limit)
-    .map(({ id, preview, agentId, updatedAt }) => ({
-      id,
-      preview,
-      agentId,
-      updatedAt,
-    }));
+    .map(toSessionSummary);
 }
 
 /**
  * Get a specific chat session by ID.
  */
 export function getSession(sessionId: string): ChatSession | null {
-  const sessions = getAllSessions();
-  return sessions.find((s) => s.id === sessionId) ?? null;
+  return getAllSessions().find((s) => s.id === sessionId) ?? null;
 }
 
 /**
@@ -64,7 +74,6 @@ export function saveSession(
   messages: UIMessage[],
   preview: string,
 ): void {
-  if (typeof window === "undefined") return;
   if (messages.length === 0) return;
 
   const sessions = getAllSessions();
@@ -80,50 +89,56 @@ export function saveSession(
     messages,
   };
 
-  if (existingIndex >= 0) {
-    sessions[existingIndex] = session;
-  } else {
-    sessions.push(session);
-  }
+  const updatedSessions = upsertSession(sessions, session, existingIndex);
+  const trimmedSessions = sortSessionsByRecent(updatedSessions).slice(
+    0,
+    MAX_SESSIONS,
+  );
 
-  // Keep only the most recent sessions
-  const sortedSessions = sessions
-    .sort((a, b) => b.updatedAt - a.updatedAt)
-    .slice(0, MAX_SESSIONS);
-
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sortedSessions));
-  } catch {
-    // localStorage might be full or unavailable
-    console.warn("Failed to save chat session to localStorage");
-  }
+  storageProvider.setItem(STORAGE_KEY, JSON.stringify(trimmedSessions));
 }
 
 /**
  * Delete a chat session.
  */
 export function deleteSession(sessionId: string): void {
-  if (typeof window === "undefined") return;
-
   const sessions = getAllSessions();
   const filtered = sessions.filter((s) => s.id !== sessionId);
-
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
-  } catch {
-    console.warn("Failed to delete chat session from localStorage");
-  }
+  storageProvider.setItem(STORAGE_KEY, JSON.stringify(filtered));
 }
 
 /**
  * Clear all chat sessions.
  */
 export function clearAllSessions(): void {
-  if (typeof window === "undefined") return;
+  storageProvider.removeItem(STORAGE_KEY);
+}
 
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    console.warn("Failed to clear chat sessions from localStorage");
+// Pure helper functions
+
+function sortSessionsByRecent(sessions: ChatSession[]): ChatSession[] {
+  return [...sessions].sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+function toSessionSummary(session: ChatSession): ChatSessionSummary {
+  return {
+    id: session.id,
+    preview: session.preview,
+    agentId: session.agentId,
+    updatedAt: session.updatedAt,
+  };
+}
+
+function upsertSession(
+  sessions: ChatSession[],
+  session: ChatSession,
+  existingIndex: number,
+): ChatSession[] {
+  const result = [...sessions];
+  if (existingIndex >= 0) {
+    result[existingIndex] = session;
+  } else {
+    result.push(session);
   }
+  return result;
 }
