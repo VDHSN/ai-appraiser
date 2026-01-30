@@ -18,6 +18,9 @@ export type {
 // Client analytics (browser only)
 export { analytics } from "./client";
 
+// Feature flags (browser only)
+export { useFeatureFlag, useFeatureFlagValue } from "./useFeatureFlag";
+
 // Mocks for testing
 export {
   MockClientAnalytics,
