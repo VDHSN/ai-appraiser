@@ -89,6 +89,9 @@ export function NewUIContainer() {
     messages: UIMessage[];
   }>({ sessionId: null, agentId, messages: [] });
 
+  // Track the previous sessionId to detect session changes
+  const prevSessionIdRef = useRef<string | null>(null);
+
   // Reset initialization state when returning to landing page
   useEffect(() => {
     if (view === "landing") {
@@ -124,22 +127,41 @@ export function NewUIContainer() {
   );
 
   const { messages, sendMessage, status, stop, setMessages } = useChat({
+    // Use sessionId as chat ID to isolate state between sessions
+    // This ensures each chat session has its own message state
+    id: sessionId ?? undefined,
     transport,
   });
 
-  // Clear messages when starting a fresh new chat (not resuming)
-  // This ensures the useChat hook starts with an empty state for new sessions
+  // Stop any active streaming when leaving chat view
+  // This prevents responses from a previous chat bleeding into new sessions
   useEffect(() => {
-    if (
+    if (view === "landing") {
+      stop();
+    }
+  }, [view, stop]);
+
+  // Clear messages when starting a fresh new chat (not resuming)
+  // Also handles when sessionId changes (defense in depth with id option)
+  useEffect(() => {
+    const isNewSession = sessionId !== prevSessionIdRef.current;
+    const shouldClearMessages =
       view === "chat" &&
       sessionId &&
       !resumeMessages &&
       !hasInitializedRef.current &&
-      messages.length > 0
-    ) {
+      (messages.length > 0 || isNewSession);
+
+    if (shouldClearMessages && messages.length > 0) {
+      stop(); // Stop any lingering stream from previous session
       setMessages([]);
     }
-  }, [view, sessionId, resumeMessages, messages.length, setMessages]);
+
+    // Update the ref after processing
+    if (sessionId !== prevSessionIdRef.current) {
+      prevSessionIdRef.current = sessionId;
+    }
+  }, [view, sessionId, resumeMessages, messages.length, setMessages, stop]);
 
   // Initialize with resume messages when resuming a chat
   useEffect(() => {

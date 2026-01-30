@@ -294,6 +294,46 @@ describe("NewUIContainer", () => {
 
       expect(mockSetMessages).toHaveBeenCalledWith([]);
     });
+
+    it("stops streaming when clearing messages for new session", () => {
+      mockHomeState.view = "chat";
+      mockHomeState.initialMessage = "New message";
+      mockHomeState.sessionId = "new-session-456";
+      mockHomeState.resumeMessages = null;
+      mockChatState.messages = [{ id: "old-msg", role: "user" }];
+
+      render(<NewUIContainer />);
+
+      // stop() should be called to abort any lingering stream
+      expect(mockStop).toHaveBeenCalled();
+      expect(mockSetMessages).toHaveBeenCalledWith([]);
+    });
+  });
+
+  describe("streaming cleanup", () => {
+    it("stops streaming when navigating to landing page", () => {
+      mockHomeState.view = "landing";
+
+      render(<NewUIContainer />);
+
+      // stop() should be called when view is landing
+      expect(mockStop).toHaveBeenCalled();
+    });
+
+    it("stops any active stream before clearing messages", () => {
+      mockHomeState.view = "chat";
+      mockHomeState.initialMessage = "Fresh start";
+      mockHomeState.sessionId = "new-session";
+      mockHomeState.resumeMessages = null;
+      mockChatState.messages = [{ id: "streaming-msg", role: "assistant" }];
+      mockChatState.status = "streaming"; // Actively streaming
+
+      render(<NewUIContainer />);
+
+      // stop() should be called before setMessages
+      expect(mockStop).toHaveBeenCalled();
+      expect(mockSetMessages).toHaveBeenCalledWith([]);
+    });
   });
 
   describe("agent selection from landing", () => {
