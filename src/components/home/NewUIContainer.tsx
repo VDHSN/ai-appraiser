@@ -130,8 +130,10 @@ export function NewUIContainer() {
   // when the agent changes. The useChat hook only recreates its internal Chat
   // instance when `id` changes, so we must include all transport-relevant
   // state in the ID to keep the Chat and transport synchronized.
+  // Use a stable "idle" ID when no session exists to prevent undefined behavior
+  // in useChat when transitioning between landing and chat views.
   const chatId = useMemo(() => {
-    if (!sessionId) return undefined;
+    if (!sessionId) return `idle-${agentId}`;
     return `${sessionId}-${agentId}`;
   }, [sessionId, agentId]);
 
@@ -152,6 +154,14 @@ export function NewUIContainer() {
   // Also handles when sessionId changes (defense in depth with id option)
   useEffect(() => {
     const isNewSession = sessionId !== prevSessionIdRef.current;
+
+    // Reset hasInitializedRef when starting a new session
+    // This ensures the send effect can run even if the landing reset effect
+    // didn't execute (e.g., due to timing issues or fast navigation)
+    if (isNewSession && view === "chat" && sessionId && !resumeMessages) {
+      hasInitializedRef.current = false;
+    }
+
     const shouldClearMessages =
       view === "chat" &&
       sessionId &&

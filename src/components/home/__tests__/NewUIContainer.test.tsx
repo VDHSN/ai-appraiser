@@ -507,7 +507,7 @@ describe("NewUIContainer", () => {
       expect(lastCall.id).toBe("session-456-appraiser");
     });
 
-    it("chat ID is undefined when sessionId is null", () => {
+    it("chat ID uses idle prefix when sessionId is null", () => {
       mockHomeState.view = "chat";
       mockHomeState.sessionId = null;
       mockAgentState.agentId = "curator";
@@ -515,7 +515,7 @@ describe("NewUIContainer", () => {
       render(<NewUIContainer />);
 
       const lastCall = useChatCalls[useChatCalls.length - 1];
-      expect(lastCall.id).toBeUndefined();
+      expect(lastCall.id).toBe("idle-curator");
     });
 
     it("different agentIds produce different chat IDs for same session", () => {
@@ -617,6 +617,222 @@ describe("NewUIContainer", () => {
       expect(newChatId).not.toBe(initialChatId);
       expect(initialChatId).toContain("curator");
       expect(newChatId).toContain("appraiser");
+    });
+  });
+
+  /**
+   * Tests for the chat → landing → chat flow bug.
+   * This bug occurs when:
+   * 1. Start a new chat thread
+   * 2. Navigate back to home page (click appraiser logo)
+   * 3. Start a new chat
+   * 4. User's chat message doesn't appear in the thread
+   */
+  describe("chat to landing to chat flow", () => {
+    it("REGRESSION: sends initial message when starting second chat after returning from landing", () => {
+      // Step 1: Start in chat view (first chat)
+      mockHomeState.view = "chat";
+      mockHomeState.initialMessage = "First message";
+      mockHomeState.sessionId = "session-first";
+      mockHomeState.resumeMessages = null;
+      mockChatState.messages = [];
+
+      const { rerender } = render(<NewUIContainer />);
+
+      // Verify first message was sent
+      expect(mockSendMessage).toHaveBeenCalledWith({ text: "First message" });
+      mockSendMessage.mockClear();
+
+      // Simulate message arriving (user's message appears)
+      mockChatState.messages = [{ id: "msg-1", role: "user" }];
+      rerender(<NewUIContainer />);
+
+      // Step 2: Go back to landing page
+      mockHomeState.view = "landing";
+      mockHomeState.initialMessage = null;
+      mockHomeState.sessionId = null;
+      rerender(<NewUIContainer />);
+
+      // Step 3: Start a new chat (second session)
+      mockHomeState.view = "chat";
+      mockHomeState.initialMessage = "Second message";
+      mockHomeState.sessionId = "session-second";
+      mockHomeState.resumeMessages = null;
+      // Simulate what useChat should return for a NEW chatId - empty messages
+      mockChatState.messages = [];
+      rerender(<NewUIContainer />);
+
+      // Step 4: Verify second message was sent
+      expect(mockSendMessage).toHaveBeenCalledWith({ text: "Second message" });
+    });
+
+    it("REGRESSION: clears messages properly when starting second chat with stale messages", () => {
+      // Step 1: First chat with messages
+      mockHomeState.view = "chat";
+      mockHomeState.initialMessage = "First message";
+      mockHomeState.sessionId = "session-first";
+      mockChatState.messages = [];
+
+      const { rerender } = render(<NewUIContainer />);
+      mockSendMessage.mockClear();
+
+      // Simulate messages from first chat
+      mockChatState.messages = [
+        { id: "msg-1", role: "user" },
+        { id: "msg-2", role: "assistant" },
+      ];
+      rerender(<NewUIContainer />);
+
+      // Step 2: Go to landing
+      mockHomeState.view = "landing";
+      mockHomeState.initialMessage = null;
+      mockHomeState.sessionId = null;
+      rerender(<NewUIContainer />);
+
+      // Step 3: Start second chat - but messages array still has old messages
+      // This simulates a race condition or stale state in useChat
+      mockHomeState.view = "chat";
+      mockHomeState.initialMessage = "Second message";
+      mockHomeState.sessionId = "session-second";
+      mockHomeState.resumeMessages = null;
+      // Keep old messages to simulate the bug scenario
+      // mockChatState.messages stays as [msg-1, msg-2]
+      rerender(<NewUIContainer />);
+
+      // Should clear the stale messages
+      expect(mockSetMessages).toHaveBeenCalledWith([]);
+    });
+
+    it("sends user-typed messages after navigating back from landing", async () => {
+      const user = userEvent.setup();
+
+      // Step 1: Start first chat
+      mockHomeState.view = "chat";
+      mockHomeState.initialMessage = "First message";
+      mockHomeState.sessionId = "session-first";
+      mockChatState.messages = [];
+
+      const { rerender } = render(<NewUIContainer />);
+      mockSendMessage.mockClear();
+
+      // Step 2: Go to landing
+      mockHomeState.view = "landing";
+      mockHomeState.sessionId = null;
+      rerender(<NewUIContainer />);
+
+      // Step 3: Start second chat (no initial message, user will type)
+      mockHomeState.view = "chat";
+      mockHomeState.initialMessage = null;
+      mockHomeState.sessionId = "session-second";
+      mockChatState.messages = [];
+      rerender(<NewUIContainer />);
+
+      // User types and submits a message
+      const input = screen.getByTestId("chat-input-field");
+      await user.type(input, "Manual message");
+      const form = screen.getByTestId("chat-input");
+      await user.click(form.querySelector("button")!);
+
+      // Message should be sent
+      expect(mockSendMessage).toHaveBeenCalledWith({ text: "Manual message" });
+    });
+
+    it("handles multiple round trips between chat and landing", () => {
+      // First chat
+      mockHomeState.view = "chat";
+      mockHomeState.initialMessage = "Message 1";
+      mockHomeState.sessionId = "session-1";
+      mockChatState.messages = [];
+
+      const { rerender } = render(<NewUIContainer />);
+      expect(mockSendMessage).toHaveBeenCalledWith({ text: "Message 1" });
+      mockSendMessage.mockClear();
+
+      // Back to landing
+      mockHomeState.view = "landing";
+      mockHomeState.sessionId = null;
+      mockHomeState.initialMessage = null;
+      rerender(<NewUIContainer />);
+
+      // Second chat
+      mockHomeState.view = "chat";
+      mockHomeState.initialMessage = "Message 2";
+      mockHomeState.sessionId = "session-2";
+      mockChatState.messages = [];
+      rerender(<NewUIContainer />);
+      expect(mockSendMessage).toHaveBeenCalledWith({ text: "Message 2" });
+      mockSendMessage.mockClear();
+
+      // Back to landing again
+      mockHomeState.view = "landing";
+      mockHomeState.sessionId = null;
+      mockHomeState.initialMessage = null;
+      rerender(<NewUIContainer />);
+
+      // Third chat
+      mockHomeState.view = "chat";
+      mockHomeState.initialMessage = "Message 3";
+      mockHomeState.sessionId = "session-3";
+      mockChatState.messages = [];
+      rerender(<NewUIContainer />);
+      expect(mockSendMessage).toHaveBeenCalledWith({ text: "Message 3" });
+    });
+
+    it("REGRESSION: resets initialization ref even when landing effect is skipped", () => {
+      // This test simulates a scenario where the landing effect might not run
+      // but a new session is detected - the clear effect should reset the ref
+
+      // Start with first chat complete (simulate hasInitializedRef = true)
+      mockHomeState.view = "chat";
+      mockHomeState.initialMessage = "First message";
+      mockHomeState.sessionId = "session-first";
+      mockChatState.messages = [];
+
+      const { rerender } = render(<NewUIContainer />);
+      expect(mockSendMessage).toHaveBeenCalledWith({ text: "First message" });
+      mockSendMessage.mockClear();
+
+      // Simulate messages from first chat
+      mockChatState.messages = [{ id: "msg-1", role: "user" }];
+      rerender(<NewUIContainer />);
+
+      // Skip to second chat without explicit landing transition
+      // This could happen in edge cases where state batching occurs
+      mockHomeState.view = "chat";
+      mockHomeState.initialMessage = "Second message";
+      mockHomeState.sessionId = "session-second";
+      mockHomeState.resumeMessages = null;
+      mockChatState.messages = []; // New session should have empty messages
+      rerender(<NewUIContainer />);
+
+      // Should still send the message because clear effect resets hasInitializedRef
+      // when a new session is detected
+      expect(mockSendMessage).toHaveBeenCalledWith({ text: "Second message" });
+    });
+
+    it("uses stable idle chatId when on landing page", () => {
+      // First chat
+      mockHomeState.view = "chat";
+      mockHomeState.sessionId = "session-1";
+      mockAgentState.agentId = "curator";
+
+      const { rerender } = render(<NewUIContainer />);
+      const chatChatId = useChatCalls[useChatCalls.length - 1].id;
+      expect(chatChatId).toBe("session-1-curator");
+
+      // Go to landing - should use idle ID, not undefined
+      mockHomeState.view = "landing";
+      mockHomeState.sessionId = null;
+      rerender(<NewUIContainer />);
+      const landingChatId = useChatCalls[useChatCalls.length - 1].id;
+      expect(landingChatId).toBe("idle-curator");
+
+      // New chat - should use new session ID
+      mockHomeState.view = "chat";
+      mockHomeState.sessionId = "session-2";
+      rerender(<NewUIContainer />);
+      const newChatChatId = useChatCalls[useChatCalls.length - 1].id;
+      expect(newChatChatId).toBe("session-2-curator");
     });
   });
 });
