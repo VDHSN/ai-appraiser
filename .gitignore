@@ -65,3 +65,4 @@ node-compile-cache/
 
 # claude code hooks logs
 /logs/*.json
+.worktrees
