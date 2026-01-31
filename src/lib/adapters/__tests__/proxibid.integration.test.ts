@@ -21,7 +21,19 @@ const INTEGRATION_TIMEOUT = 30000;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe.skipIf(SKIP_INTEGRATION)("ProxiBid Integration", () => {
-  // Rate-limited adapter to avoid 403s (1 request every 3 seconds)
+  /**
+   * Integration test adapter setup.
+   *
+   * Uses the built-in WAF bypass mode with enhanced browser headers.
+   * Rate limiting is handled by the adapter's internal retry logic.
+   *
+   * If you're getting 403 errors, try enabling session initialization:
+   *   const adapter = new ProxiBidAdapter({
+   *     enableWafBypass: true,
+   *     maxRetries: 3,
+   *   });
+   *   await adapter.initSession(); // Call before first request
+   */
   const limiter = new RateLimiter({ requestsPerSecond: 0.33, maxBurst: 1 });
   const rateLimitedFetch = createRateLimitedFetch(limiter);
   const adapter = new ProxiBidAdapter({ fetchFn: rateLimitedFetch });

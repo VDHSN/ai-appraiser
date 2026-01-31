@@ -1,9 +1,13 @@
 /**
  * ProxiBid platform adapter.
  * Implements search, item details (via HTML scraping), and price history.
+ *
+ * WAF Bypass: Proxibid uses Incapsula WAF which requires proper browser headers
+ * and cookie management. This adapter uses enhanced headers to mimic Chrome.
  */
 
 import { JSDOM } from "jsdom";
+import { createWafBypassFetch, type WafBypassFetch } from "./waf-bypass-fetch";
 
 // --- Custom Error Types ---
 
@@ -48,11 +52,37 @@ const SEARCH_URL = "https://www.proxibid.com/asp/SearchBuilder.asp";
 const BASE_URL = "https://www.proxibid.com";
 const IMAGE_BASE_URL = "https://images.proxibid.com/AuctionImages";
 
+/**
+ * Enhanced browser headers for WAF bypass.
+ * These headers mimic a real Chrome browser to avoid Incapsula blocks.
+ */
 const REQUIRED_HEADERS: HeadersInit = {
-  Accept: "application/json, text/html",
+  // User agent - use a common Chrome version
   "User-Agent":
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+
+  // Accept headers
+  Accept: "application/json, text/plain, */*",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Accept-Encoding": "gzip, deflate, br",
+
+  // Chrome Client Hints (critical for WAF bypass)
+  "sec-ch-ua":
+    '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+  "sec-ch-ua-mobile": "?0",
+  "sec-ch-ua-platform": '"Windows"',
+
+  // Sec-Fetch headers (browser security context)
+  "Sec-Fetch-Dest": "empty",
+  "Sec-Fetch-Mode": "cors",
+  "Sec-Fetch-Site": "same-origin",
+
+  // Origin and Referer
   Referer: "https://www.proxibid.com/",
+  Origin: "https://www.proxibid.com",
+
+  // Connection
+  Connection: "keep-alive",
 };
 
 const PLATFORM = "proxibid" as const;
@@ -407,18 +437,61 @@ function validateSearchResponse(data: unknown): PBSearchResponse {
 // --- Adapter Class ---
 
 export interface ProxiBidConfig {
+  /** Custom fetch function (for rate limiting, testing, etc.) */
   fetchFn?: FetchFn;
+  /** Logger for warnings and errors */
   logger?: (message: string) => void;
+  /** Enable WAF bypass mode with session management */
+  enableWafBypass?: boolean;
+  /** Maximum retry attempts for WAF blocked requests */
+  maxRetries?: number;
 }
 
 export class ProxiBidAdapter implements PlatformAdapter {
   readonly platform = PLATFORM;
   private readonly fetchFn: FetchFn;
   private readonly logger: (message: string) => void;
+  private readonly wafBypass: WafBypassFetch | null = null;
+  private sessionInitPromise: Promise<void> | null = null;
 
   constructor(config: ProxiBidConfig = {}) {
-    this.fetchFn = config.fetchFn ?? fetch;
     this.logger = config.logger ?? console.warn;
+
+    // If WAF bypass is enabled, create a WAF bypass fetch wrapper
+    if (config.enableWafBypass) {
+      this.wafBypass = createWafBypassFetch({
+        domain: "proxibid.com",
+        maxRetries: config.maxRetries ?? 3,
+        baseDelayMs: 1000,
+        sessionInitUrl: "https://www.proxibid.com/",
+        logger: this.logger,
+      });
+      this.fetchFn = this.wafBypass.fetch;
+    } else if (config.fetchFn) {
+      this.fetchFn = config.fetchFn;
+    } else {
+      // Default: create a basic WAF bypass fetch (headers only, no session)
+      this.wafBypass = createWafBypassFetch({
+        domain: "proxibid.com",
+        maxRetries: config.maxRetries ?? 2,
+        baseDelayMs: 500,
+        logger: this.logger,
+      });
+      this.fetchFn = this.wafBypass.fetch;
+    }
+  }
+
+  /**
+   * Initialize session by visiting the main page to collect cookies.
+   * Called automatically on first request when WAF bypass is enabled.
+   */
+  async initSession(): Promise<void> {
+    if (!this.wafBypass) return;
+
+    if (!this.sessionInitPromise) {
+      this.sessionInitPromise = this.wafBypass.initSession();
+    }
+    await this.sessionInitPromise;
   }
 
   async search(query: SearchQuery): Promise<SearchResult[]> {
