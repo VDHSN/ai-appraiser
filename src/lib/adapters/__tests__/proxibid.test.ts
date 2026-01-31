@@ -3,6 +3,7 @@ import {
   ProxiBidAdapter,
   ProxibidBlockedError,
   ProxibidParseError,
+  ProxibidServerError,
   buildSearchUrl,
   buildImageUrl,
   buildProxiedImageUrl,
@@ -13,6 +14,7 @@ import {
   mapSearchItem,
   isHtmlContent,
   isBlockedResponse,
+  isServerError,
   validateSearchResponse,
   type PBLotMeta,
   type PBSearchResponse,
@@ -444,6 +446,41 @@ describe("isBlockedResponse", () => {
   });
 });
 
+describe("isServerError", () => {
+  it("detects 500 status", () => {
+    expect(isServerError(500)).toBe(true);
+  });
+
+  it("detects 502 status", () => {
+    expect(isServerError(502)).toBe(true);
+  });
+
+  it("detects 503 status", () => {
+    expect(isServerError(503)).toBe(true);
+  });
+
+  it("returns false for 4xx errors", () => {
+    expect(isServerError(400)).toBe(false);
+    expect(isServerError(403)).toBe(false);
+    expect(isServerError(404)).toBe(false);
+    expect(isServerError(429)).toBe(false);
+  });
+
+  it("returns false for success status", () => {
+    expect(isServerError(200)).toBe(false);
+    expect(isServerError(201)).toBe(false);
+  });
+});
+
+describe("ProxibidServerError", () => {
+  it("has correct name and properties", () => {
+    const error = new ProxibidServerError("Test error", 500);
+    expect(error.name).toBe("ProxibidServerError");
+    expect(error.message).toBe("Test error");
+    expect(error.statusCode).toBe(500);
+  });
+});
+
 describe("validateSearchResponse", () => {
   it("returns empty for null", () => {
     const result = validateSearchResponse(null);
@@ -613,14 +650,29 @@ describe("ProxiBidAdapter", () => {
       expect(results).toEqual([]);
     });
 
-    it("throws on failed request (non-blocked)", async () => {
+    it("returns empty array on server error (5xx)", async () => {
+      const logger = vi.fn();
       const mockFetch = createMockFetch([
         { ok: false, status: 500, text: "Internal Server Error" },
+      ]);
+      const adapter = new ProxiBidAdapter({ fetchFn: mockFetch, logger });
+
+      const results = await adapter.search({ keywords: "test" });
+
+      expect(results).toEqual([]);
+      expect(logger).toHaveBeenCalledWith(
+        expect.stringContaining("server error"),
+      );
+    });
+
+    it("throws on non-server, non-blocked errors (e.g., 404)", async () => {
+      const mockFetch = createMockFetch([
+        { ok: false, status: 404, text: "Not Found" },
       ]);
       const adapter = new ProxiBidAdapter({ fetchFn: mockFetch });
 
       await expect(adapter.search({ keywords: "test" })).rejects.toThrow(
-        "ProxiBid search failed: 500",
+        "ProxiBid search failed: 404",
       );
     });
 
@@ -732,6 +784,21 @@ describe("ProxiBidAdapter", () => {
       expect(results).toEqual([]);
       expect(logger).toHaveBeenCalledWith(
         expect.stringContaining("parse error"),
+      );
+    });
+
+    it("returns empty array on server error (5xx)", async () => {
+      const logger = vi.fn();
+      const mockFetch = createMockFetch([
+        { ok: false, status: 500, text: "Internal Server Error" },
+      ]);
+      const adapter = new ProxiBidAdapter({ fetchFn: mockFetch, logger });
+
+      const results = await adapter.getPriceHistory({ keywords: "test" });
+
+      expect(results).toEqual([]);
+      expect(logger).toHaveBeenCalledWith(
+        expect.stringContaining("server error"),
       );
     });
   });

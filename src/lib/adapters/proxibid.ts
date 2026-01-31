@@ -26,6 +26,16 @@ export class ProxibidParseError extends Error {
     this.name = "ProxibidParseError";
   }
 }
+
+export class ProxibidServerError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode: number,
+  ) {
+    super(message);
+    this.name = "ProxibidServerError";
+  }
+}
 import {
   PlatformAdapter,
   SearchQuery,
@@ -293,6 +303,10 @@ function isBlockedResponse(status: number, text?: string): boolean {
   return false;
 }
 
+function isServerError(status: number): boolean {
+  return status >= 500 && status < 600;
+}
+
 async function fetchJson<T>(
   fetchFn: FetchFn,
   url: string,
@@ -309,6 +323,12 @@ async function fetchJson<T>(
     if (isBlockedResponse(response.status, text)) {
       throw new ProxibidBlockedError(
         `${errorContext}: blocked by WAF (${response.status})`,
+        response.status,
+      );
+    }
+    if (isServerError(response.status)) {
+      throw new ProxibidServerError(
+        `${errorContext}: server error (${response.status})`,
         response.status,
       );
     }
@@ -421,6 +441,10 @@ export class ProxiBidAdapter implements PlatformAdapter {
         this.logger(`ProxiBid search parse error: ${error.message}`);
         return [];
       }
+      if (error instanceof ProxibidServerError) {
+        this.logger(`ProxiBid search server error: ${error.message}`);
+        return [];
+      }
       throw error;
     }
   }
@@ -443,6 +467,10 @@ export class ProxiBidAdapter implements PlatformAdapter {
       }
       if (error instanceof ProxibidParseError) {
         this.logger(`ProxiBid price history parse error: ${error.message}`);
+        return [];
+      }
+      if (error instanceof ProxibidServerError) {
+        this.logger(`ProxiBid price history server error: ${error.message}`);
         return [];
       }
       throw error;
@@ -498,5 +526,6 @@ export {
   type ScrapedItemDetail,
   isHtmlContent,
   isBlockedResponse,
+  isServerError,
   validateSearchResponse,
 };
