@@ -43,7 +43,7 @@ vi.mock("@/lib/agent", () => ({
   useAgent: () => mockAgentState,
 }));
 
-// Mock useChat hook
+// Mock useChat hook with argument capture
 const mockSendMessage = vi.fn();
 const mockStop = vi.fn();
 const mockSetMessages = vi.fn();
@@ -55,13 +55,23 @@ const mockChatState = {
   setMessages: mockSetMessages,
 };
 
+// Capture useChat arguments for verification
+const useChatCalls: Array<{ id: string | undefined; transport: unknown }> = [];
 vi.mock("@ai-sdk/react", () => ({
-  useChat: () => mockChatState,
+  useChat: (options: { id?: string; transport?: unknown }) => {
+    useChatCalls.push({ id: options?.id, transport: options?.transport });
+    return mockChatState;
+  },
   UIMessage: {},
 }));
 
+// Capture DefaultChatTransport constructor arguments
+const transportConstructorCalls: Array<{ api: string; body: unknown }> = [];
 vi.mock("ai", () => ({
-  DefaultChatTransport: vi.fn(),
+  DefaultChatTransport: vi.fn().mockImplementation((options) => {
+    transportConstructorCalls.push(options);
+    return { _options: options };
+  }),
 }));
 
 // Mock child components to avoid Clerk dependency
@@ -99,6 +109,9 @@ vi.mock("@/components/chat/ChatInput", () => ({
 describe("NewUIContainer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Clear argument capture arrays
+    useChatCalls.length = 0;
+    transportConstructorCalls.length = 0;
     // Reset to default state
     mockHomeState.view = "landing";
     mockHomeState.initialMessage = null;
@@ -450,6 +463,160 @@ describe("NewUIContainer", () => {
       render(<NewUIContainer />);
 
       expect(mockSetAgentId).toHaveBeenCalledWith("appraiser");
+    });
+  });
+
+  /**
+   * Transport/Chat ID Synchronization Tests
+   *
+   * These tests verify that the chat instance stays synchronized with the transport.
+   * The useChat hook only recreates its internal Chat when `id` changes, so we must
+   * include all transport-relevant state (like agentId) in the chat ID.
+   *
+   * Without these tests, a bug where agentId changes but chat ID doesn't would go
+   * undetected, causing the chat to use a stale transport with the wrong agentId.
+   */
+  describe("transport and chat ID synchronization", () => {
+    it("creates transport with current agentId in body", () => {
+      mockHomeState.view = "chat";
+      mockHomeState.sessionId = "session-123";
+      mockAgentState.agentId = "curator";
+
+      render(<NewUIContainer />);
+
+      // Verify transport was created with correct agentId
+      expect(transportConstructorCalls.length).toBeGreaterThan(0);
+      const lastTransport =
+        transportConstructorCalls[transportConstructorCalls.length - 1];
+      expect(lastTransport.body).toMatchObject({
+        agentId: "curator",
+        sessionId: "session-123",
+      });
+    });
+
+    it("creates chat ID that includes both sessionId and agentId", () => {
+      mockHomeState.view = "chat";
+      mockHomeState.sessionId = "session-456";
+      mockAgentState.agentId = "appraiser";
+
+      render(<NewUIContainer />);
+
+      // Verify useChat was called with composite ID
+      expect(useChatCalls.length).toBeGreaterThan(0);
+      const lastCall = useChatCalls[useChatCalls.length - 1];
+      expect(lastCall.id).toBe("session-456-appraiser");
+    });
+
+    it("chat ID is undefined when sessionId is null", () => {
+      mockHomeState.view = "chat";
+      mockHomeState.sessionId = null;
+      mockAgentState.agentId = "curator";
+
+      render(<NewUIContainer />);
+
+      const lastCall = useChatCalls[useChatCalls.length - 1];
+      expect(lastCall.id).toBeUndefined();
+    });
+
+    it("different agentIds produce different chat IDs for same session", () => {
+      mockHomeState.view = "chat";
+      mockHomeState.sessionId = "session-789";
+
+      // First render with curator
+      mockAgentState.agentId = "curator";
+      const { rerender } = render(<NewUIContainer />);
+      const curatorCallIndex = useChatCalls.length - 1;
+      const curatorChatId = useChatCalls[curatorCallIndex].id;
+
+      // Simulate agent change and rerender
+      mockAgentState.agentId = "appraiser";
+      rerender(<NewUIContainer />);
+      const appraiserCallIndex = useChatCalls.length - 1;
+      const appraiserChatId = useChatCalls[appraiserCallIndex].id;
+
+      // Critical: chat IDs must be different when agentId changes
+      expect(curatorChatId).toBe("session-789-curator");
+      expect(appraiserChatId).toBe("session-789-appraiser");
+      expect(curatorChatId).not.toBe(appraiserChatId);
+    });
+
+    it("transport body updates when agentId changes", () => {
+      mockHomeState.view = "chat";
+      mockHomeState.sessionId = "session-abc";
+
+      // First render with curator
+      mockAgentState.agentId = "curator";
+      const { rerender } = render(<NewUIContainer />);
+
+      // Simulate agent change
+      mockAgentState.agentId = "appraiser";
+      rerender(<NewUIContainer />);
+
+      // Get the most recent transport
+      const lastTransport =
+        transportConstructorCalls[transportConstructorCalls.length - 1];
+      expect(lastTransport.body).toMatchObject({
+        agentId: "appraiser",
+        sessionId: "session-abc",
+      });
+    });
+
+    it("chat ID and transport agentId stay synchronized after agent switch", () => {
+      mockHomeState.view = "chat";
+      mockHomeState.sessionId = "session-sync-test";
+      mockAgentState.agentId = "curator";
+
+      const { rerender } = render(<NewUIContainer />);
+
+      // Simulate agent switch
+      mockAgentState.agentId = "appraiser";
+      rerender(<NewUIContainer />);
+
+      // Get the latest calls
+      const lastUseChatCall = useChatCalls[useChatCalls.length - 1];
+      const lastTransport =
+        transportConstructorCalls[transportConstructorCalls.length - 1];
+
+      // Extract agentId from chat ID (format: sessionId-agentId)
+      const chatIdParts = lastUseChatCall.id?.split("-");
+      const agentIdFromChatId = chatIdParts?.[chatIdParts.length - 1];
+
+      // Extract agentId from transport body
+      const agentIdFromTransport = (lastTransport.body as { agentId: string })
+        .agentId;
+
+      // Critical: both must have the same agentId
+      expect(agentIdFromChatId).toBe("appraiser");
+      expect(agentIdFromTransport).toBe("appraiser");
+      expect(agentIdFromChatId).toBe(agentIdFromTransport);
+    });
+
+    /**
+     * This test would have FAILED with the old code where chat ID was just sessionId.
+     * It verifies the fix is working correctly.
+     */
+    it("REGRESSION: chat ID must change when agentId changes (caught transport desync bug)", () => {
+      mockHomeState.view = "chat";
+      mockHomeState.sessionId = "regression-test-session";
+      mockAgentState.agentId = "curator";
+
+      const { rerender } = render(<NewUIContainer />);
+      const initialChatId = useChatCalls[useChatCalls.length - 1].id;
+
+      // Agent changes (e.g., from switchAgentMode tool call)
+      mockAgentState.agentId = "appraiser";
+      rerender(<NewUIContainer />);
+      const newChatId = useChatCalls[useChatCalls.length - 1].id;
+
+      // THE BUG: If chat ID doesn't change, useChat won't recreate its internal
+      // Chat instance, and it will continue using the old transport with the
+      // wrong agentId. This causes:
+      // - Streaming to stop after agent switch
+      // - Messages sent with wrong agentId
+      // - Server using wrong agent to respond
+      expect(newChatId).not.toBe(initialChatId);
+      expect(initialChatId).toContain("curator");
+      expect(newChatId).toContain("appraiser");
     });
   });
 });
