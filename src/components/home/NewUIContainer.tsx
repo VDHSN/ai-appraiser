@@ -126,10 +126,17 @@ export function NewUIContainer() {
     [agentId, sessionId, isRestored, restoredSessionId],
   );
 
+  // Create composite chat ID that includes agentId to force chat recreation
+  // when the agent changes. The useChat hook only recreates its internal Chat
+  // instance when `id` changes, so we must include all transport-relevant
+  // state in the ID to keep the Chat and transport synchronized.
+  const chatId = useMemo(() => {
+    if (!sessionId) return undefined;
+    return `${sessionId}-${agentId}`;
+  }, [sessionId, agentId]);
+
   const { messages, sendMessage, status, stop, setMessages } = useChat({
-    // Use sessionId as chat ID to isolate state between sessions
-    // This ensures each chat session has its own message state
-    id: sessionId ?? undefined,
+    id: chatId,
     transport,
   });
 
