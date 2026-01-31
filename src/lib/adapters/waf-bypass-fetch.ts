@@ -9,7 +9,35 @@
  * 2. Cookie jar management for session persistence
  * 3. Retry logic with exponential backoff
  * 4. Session initialization support
+ * 5. Custom DNS resolution using Cloudflare (1.1.1.1)
  */
+
+import dns from "dns";
+
+// --- DNS Configuration ---
+
+/**
+ * Configure DNS to use Cloudflare's resolver (1.1.1.1).
+ * This helps bypass DNS resolution issues in restricted environments.
+ */
+let dnsConfigured = false;
+
+export function configureCloudfareDns(): void {
+  if (dnsConfigured) return;
+
+  try {
+    // Use Cloudflare's DNS servers (1.1.1.1 and 1.0.0.1)
+    // Plus Google's as fallback (8.8.8.8 and 8.8.4.4)
+    dns.setServers(["1.1.1.1", "1.0.0.1", "8.8.8.8", "8.8.4.4"]);
+    dnsConfigured = true;
+  } catch {
+    // DNS configuration may fail in some environments (e.g., browsers)
+    // Silently continue - native fetch will use system DNS
+  }
+}
+
+// Configure DNS on module load
+configureCloudfareDns();
 
 // --- Types ---
 
@@ -24,6 +52,8 @@ export interface WafBypassConfig {
   sessionInitUrl?: string;
   /** Custom logger function */
   logger?: (message: string) => void;
+  /** Custom DNS servers to use (default: Cloudflare 1.1.1.1) */
+  dnsServers?: string[];
 }
 
 export interface CookieJar {
@@ -215,6 +245,18 @@ export function createWafBypassFetch(config: WafBypassConfig): WafBypassFetch {
   const maxRetries = config.maxRetries ?? 3;
   const baseDelayMs = config.baseDelayMs ?? 1000;
   const logger = config.logger ?? console.warn;
+
+  // Configure custom DNS servers if provided
+  if (config.dnsServers && config.dnsServers.length > 0) {
+    try {
+      dns.setServers(config.dnsServers);
+      logger(`[WAF] Using custom DNS servers: ${config.dnsServers.join(", ")}`);
+    } catch (error) {
+      logger(
+        `[WAF] Failed to set DNS servers: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    }
+  }
 
   /**
    * Initialize session by visiting the main page to collect cookies
