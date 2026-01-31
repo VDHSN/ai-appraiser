@@ -181,34 +181,55 @@ export function NewUIContainer() {
   }, [view, sessionId, resumeMessages, messages.length, setMessages, stop]);
 
   // Initialize with resume messages when resuming a chat
+  // Wait for agent to be set correctly before restoring messages to ensure
+  // chatId is stable and won't change (which would create a new Chat instance)
   useEffect(() => {
     if (
       view === "chat" &&
       resumeMessages &&
       resumeMessages.length > 0 &&
       messages.length === 0 &&
-      !hasInitializedRef.current
+      !hasInitializedRef.current &&
+      (!selectedAgent || selectedAgent === agentId)
     ) {
       hasInitializedRef.current = true;
       setMessages(resumeMessages);
     }
-  }, [view, resumeMessages, messages.length, setMessages]);
+  }, [
+    view,
+    resumeMessages,
+    messages.length,
+    setMessages,
+    selectedAgent,
+    agentId,
+  ]);
 
   const isLoading = status === "submitted" || status === "streaming";
 
   // Send the initial message when transitioning to chat (new chat, not resume)
+  // Wait for agent to be set correctly before sending to ensure chatId is
+  // stable and won't change (which would create a new Chat instance)
   useEffect(() => {
     if (
       view === "chat" &&
       initialMessage &&
       !resumeMessages && // Don't send if resuming
       !hasInitializedRef.current &&
-      messages.length === 0
+      messages.length === 0 &&
+      (!selectedAgent || selectedAgent === agentId)
     ) {
       hasInitializedRef.current = true;
       sendMessage({ text: initialMessage });
     }
-  }, [view, initialMessage, resumeMessages, messages.length, sendMessage]);
+  }, [
+    view,
+    initialMessage,
+    resumeMessages,
+    messages.length,
+    sendMessage,
+    selectedAgent,
+    agentId,
+  ]);
 
   // Auto-scroll to bottom when messages update
   useEffect(() => {
