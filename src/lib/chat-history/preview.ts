@@ -9,6 +9,7 @@ import {
   type ChatPreviewResponse,
   createFetchHttpClient,
 } from "./interfaces";
+import { getAnalyticsHeaders } from "@/lib/analytics";
 
 // Default HTTP client using fetch
 let httpClient: HttpClient = createFetchHttpClient();
@@ -84,6 +85,7 @@ export async function generateChatPreview(
     const data = await httpClient.post<ChatPreviewResponse>(
       "/api/chat-preview",
       { messages: formattedMessages },
+      getAnalyticsHeaders(),
     );
     return data.preview || getFallbackPreview(formattedMessages);
   } catch {

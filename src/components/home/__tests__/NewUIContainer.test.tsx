@@ -12,6 +12,7 @@ beforeAll(() => {
 const mockTrack = vi.fn();
 vi.mock("@/lib/analytics", () => ({
   analytics: { track: (...args: unknown[]) => mockTrack(...args) },
+  getAnalyticsHeaders: () => ({ "x-posthog-distinct-id": "test-distinct-id" }),
 }));
 
 // Mock home context
