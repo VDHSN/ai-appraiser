@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mock dependencies before importing the route
 vi.mock("@/lib/analytics/server", () => ({
   serverAnalytics: { track: vi.fn() },
+  POSTHOG_DISTINCT_ID_HEADER: "x-posthog-distinct-id",
 }));
 
 vi.mock("@/lib/analytics/llm", () => ({
@@ -68,6 +69,7 @@ describe("Chat API Route", () => {
           is_restored: true,
           restored_session_id: "test-session-123",
         }),
+        undefined, // distinctId from header
       );
     });
 
@@ -92,6 +94,7 @@ describe("Chat API Route", () => {
           is_restored: false,
           restored_session_id: null,
         }),
+        undefined, // distinctId from header
       );
     });
 
@@ -116,6 +119,7 @@ describe("Chat API Route", () => {
           is_restored: false,
           restored_session_id: null,
         }),
+        undefined, // distinctId from header
       );
     });
 
@@ -139,14 +143,18 @@ describe("Chat API Route", () => {
 
       await POST(request);
 
-      expect(mockTrack).toHaveBeenCalledWith("chat:user_message", {
-        agent_id: "appraiser",
-        content: "test message",
-        message_length: 12,
-        session_id: "session-abc",
-        is_restored: false,
-        restored_session_id: null,
-      });
+      expect(mockTrack).toHaveBeenCalledWith(
+        "chat:user_message",
+        {
+          agent_id: "appraiser",
+          content: "test message",
+          message_length: 12,
+          session_id: "session-abc",
+          is_restored: false,
+          restored_session_id: null,
+        },
+        undefined, // distinctId from header
+      );
     });
   });
 

@@ -52,6 +52,15 @@ export interface AnalyticsEvents {
   "auth:prompt_shown": { agent_id: string; source: "agent" };
   "auth:prompt_dismissed": { source: "agent_prompt" };
 
+  // User identity events (client-side)
+  "user:sign_in": {
+    user_id: string;
+    email?: string;
+    first_name?: string;
+    last_name?: string;
+  };
+  "user:sign_out": { user_id: string };
+
   // Server events
   "adapter:search": {
     platform: string;
@@ -99,6 +108,8 @@ export interface AnalyticsEvents {
 export interface UserProperties {
   email?: string;
   name?: string;
+  first_name?: string;
+  last_name?: string;
   plan?: string;
   [key: string]: unknown;
 }
@@ -114,6 +125,8 @@ export interface ClientAnalyticsEvents {
   "auth:sign_up_clicked": AnalyticsEvents["auth:sign_up_clicked"];
   "auth:prompt_shown": AnalyticsEvents["auth:prompt_shown"];
   "auth:prompt_dismissed": AnalyticsEvents["auth:prompt_dismissed"];
+  "user:sign_in": AnalyticsEvents["user:sign_in"];
+  "user:sign_out": AnalyticsEvents["user:sign_out"];
 }
 
 // Server-only events (agent/system-initiated)
@@ -155,14 +168,19 @@ export interface ClientAnalytics {
 
 // Server analytics interface (Node.js only)
 export interface ServerAnalytics {
-  // Track server events only
+  // Track server events only (distinctId links to client-side identity)
   track<E extends keyof ServerAnalyticsEvents>(
     event: E,
     properties: ServerAnalyticsEvents[E],
+    distinctId?: string,
   ): void;
 
   // Error tracking
-  captureException(error: Error, context?: Record<string, unknown>): void;
+  captureException(
+    error: Error,
+    context?: Record<string, unknown>,
+    distinctId?: string,
+  ): void;
 
   // Graceful shutdown
   shutdown(): Promise<void>;

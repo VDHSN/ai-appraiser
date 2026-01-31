@@ -18,7 +18,11 @@ export interface StorageProvider {
  * Abstracts fetch to enable testing and alternative implementations.
  */
 export interface HttpClient {
-  post<T>(url: string, body: unknown): Promise<T>;
+  post<T>(
+    url: string,
+    body: unknown,
+    headers?: Record<string, string>,
+  ): Promise<T>;
 }
 
 /**
@@ -58,10 +62,17 @@ export function createLocalStorageProvider(): StorageProvider {
  */
 export function createFetchHttpClient(): HttpClient {
   return {
-    async post<T>(url: string, body: unknown): Promise<T> {
+    async post<T>(
+      url: string,
+      body: unknown,
+      headers?: Record<string, string>,
+    ): Promise<T> {
       const response = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...headers,
+        },
         body: JSON.stringify(body),
       });
 

@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState, FormEvent, useMemo } from "react";
 import { useChat, type UIMessage } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { analytics } from "@/lib/analytics";
+import { analytics, getAnalyticsHeaders } from "@/lib/analytics";
 import { useHome } from "@/lib/home";
 import { useAgent } from "@/lib/agent";
 import { saveSession, generateChatPreview } from "@/lib/chat-history";
@@ -116,6 +116,7 @@ export function NewUIContainer() {
     () =>
       new DefaultChatTransport({
         api: "/api/chat",
+        headers: getAnalyticsHeaders(),
         body: {
           agentId,
           sessionId,

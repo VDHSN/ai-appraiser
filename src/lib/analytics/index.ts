@@ -18,6 +18,13 @@ export type {
 // Client analytics (browser only)
 export { analytics } from "./client";
 
+// Analytics headers for API requests (browser only)
+export {
+  getAnalyticsHeaders,
+  getDistinctIdFromHeaders,
+  POSTHOG_DISTINCT_ID_HEADER,
+} from "./headers";
+
 // Feature flags (browser only)
 export { useFeatureFlag, useFeatureFlagValue } from "./useFeatureFlag";
 
