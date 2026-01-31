@@ -6,10 +6,6 @@ vi.mock("@/lib/analytics/server", () => ({
   POSTHOG_DISTINCT_ID_HEADER: "x-posthog-distinct-id",
 }));
 
-vi.mock("@/lib/analytics/context", () => ({
-  runWithAnalyticsContext: vi.fn((_distinctId, callback) => callback()),
-}));
-
 vi.mock("@/lib/analytics/llm", () => ({
   getTracedModel: vi.fn(() => ({})),
 }));
