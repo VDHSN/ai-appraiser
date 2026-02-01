@@ -8,6 +8,7 @@ import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { getTracedModel } from "@/lib/analytics/llm";
 import { serverAnalytics } from "@/lib/analytics/server";
+import { serverLoggerFactory } from "@/lib/logging/server";
 import { getToolSubsetWithContext } from "@/lib/tools";
 import { getAgent, AgentIdSchema, getDefaultAgentId } from "@/lib/agent";
 
@@ -27,6 +28,9 @@ const RequestSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  // Extract distinct ID from header for server-side logging
+  const distinctId = req.headers.get("X-PostHog-DistinctId") ?? "anonymous";
+
   const body = await req.json();
   const parsed = RequestSchema.safeParse(body);
 
@@ -51,12 +55,22 @@ export async function POST(req: Request) {
     userId: userId ?? undefined,
   });
 
+  // Create request-scoped logger with full context
+  const log = serverLoggerFactory.create({
+    distinctId,
+    sessionId,
+    agentId,
+    isRestored,
+    restoredSessionId,
+  });
+
   // Track user message
   const lastUserMessage = (messages as UIMessage[]).findLast(
     (m) => m.role === "user",
   );
   if (lastUserMessage) {
     const content = extractTextContent(lastUserMessage);
+    log.info("User message received", { messageLength: content.length });
     serverAnalytics.track(
       "chat:user_message",
       {
@@ -79,6 +93,11 @@ export async function POST(req: Request) {
       tools,
       stopWhen: stepCountIs(agent.maxSteps ?? 7),
       onFinish: ({ text, toolCalls }) => {
+        log.info("Agent response complete", {
+          responseLength: text.length,
+          hasToolCalls: toolCalls.length > 0,
+          toolCount: toolCalls.length,
+        });
         serverAnalytics.track(
           "chat:agent_response",
           {
@@ -97,6 +116,7 @@ export async function POST(req: Request) {
       onError: ({ error }) => {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
+        log.error("Stream error", { errorMessage });
         serverAnalytics.track(
           "chat:ai_error",
           {
@@ -115,6 +135,7 @@ export async function POST(req: Request) {
     return result.toUIMessageStreamResponse();
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    log.error("Request error", { errorMessage });
 
     serverAnalytics.track(
       "chat:ai_error",

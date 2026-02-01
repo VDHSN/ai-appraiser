@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AgentProvider } from "@/lib/agent";
 import { HomeProvider } from "@/lib/home";
+import { LoggerProvider } from "@/lib/logging";
 import { AnalyticsIdentifier } from "@/components/analytics";
 import "./globals.css";
 
@@ -41,7 +42,9 @@ export default function RootLayout({
         >
           <AnalyticsIdentifier />
           <HomeProvider>
-            <AgentProvider>{children}</AgentProvider>
+            <AgentProvider>
+              <LoggerProvider>{children}</LoggerProvider>
+            </AgentProvider>
           </HomeProvider>
           <Analytics />
         </body>

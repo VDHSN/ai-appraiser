@@ -9,6 +9,19 @@ vi.mock("@clerk/nextjs/server", () => ({
   auth: vi.fn(() => Promise.resolve({ userId: "test-user-123" })),
 }));
 
+vi.mock("@/lib/logging/server", () => ({
+  serverLoggerFactory: {
+    create: vi.fn(() => ({
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      child: vi.fn(),
+    })),
+    shutdown: vi.fn(),
+  },
+}));
+
 vi.mock("@/lib/analytics/llm", () => ({
   getTracedModel: vi.fn(() => ({})),
 }));

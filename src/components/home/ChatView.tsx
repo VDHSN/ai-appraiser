@@ -113,6 +113,9 @@ export function ChatView({
     () =>
       new DefaultChatTransport({
         api: "/api/chat",
+        headers: {
+          "X-PostHog-DistinctId": analytics.getDistinctId() ?? "",
+        },
         body: {
           agentId,
           sessionId,
