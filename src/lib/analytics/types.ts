@@ -96,6 +96,14 @@ export interface AnalyticsEvents {
     is_restored: boolean;
     restored_session_id: string | null;
   };
+  "chat:ai_error": {
+    agent_id: string;
+    error_type: string;
+    error_message: string;
+    session_id: string | null;
+    is_restored: boolean;
+    restored_session_id: string | null;
+  };
 
   // Auth server events (from Clerk webhooks)
   "auth:sign_up": { user_id: string; method: string; source: string };
@@ -132,6 +140,7 @@ export interface ServerAnalyticsEvents {
   "adapter:get_item": AnalyticsEvents["adapter:get_item"];
   "chat:user_message": AnalyticsEvents["chat:user_message"];
   "chat:agent_response": AnalyticsEvents["chat:agent_response"];
+  "chat:ai_error": AnalyticsEvents["chat:ai_error"];
   "auth:sign_up": AnalyticsEvents["auth:sign_up"];
   "auth:sign_in": AnalyticsEvents["auth:sign_in"];
   "auth:sign_out": AnalyticsEvents["auth:sign_out"];

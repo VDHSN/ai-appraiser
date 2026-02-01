@@ -62,25 +62,58 @@ export async function POST(req: Request) {
     });
   }
 
-  const result = streamText({
-    model: getTracedModel(agent.model ?? "gemini-3-pro-preview"),
-    system: agent.systemPrompt,
-    messages: await convertToModelMessages(messages as UIMessage[]),
-    tools,
-    stopWhen: stepCountIs(agent.maxSteps ?? 7),
-    onFinish: ({ text, toolCalls }) => {
-      serverAnalytics.track("chat:agent_response", {
-        agent_id: agentId,
-        content: text,
-        response_length: text.length,
-        has_tool_calls: toolCalls.length > 0,
-        tool_count: toolCalls.length,
-        session_id: sessionId,
-        is_restored: isRestored,
-        restored_session_id: restoredSessionId,
-      });
-    },
-  });
+  try {
+    const result = streamText({
+      model: getTracedModel(agent.model ?? "gemini-3-pro-preview"),
+      system: agent.systemPrompt,
+      messages: await convertToModelMessages(messages as UIMessage[]),
+      tools,
+      stopWhen: stepCountIs(agent.maxSteps ?? 7),
+      onFinish: ({ text, toolCalls }) => {
+        serverAnalytics.track("chat:agent_response", {
+          agent_id: agentId,
+          content: text,
+          response_length: text.length,
+          has_tool_calls: toolCalls.length > 0,
+          tool_count: toolCalls.length,
+          session_id: sessionId,
+          is_restored: isRestored,
+          restored_session_id: restoredSessionId,
+        });
+      },
+      onError: ({ error }) => {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        serverAnalytics.track("chat:ai_error", {
+          agent_id: agentId,
+          error_type: "stream_error",
+          error_message: errorMessage,
+          session_id: sessionId,
+          is_restored: isRestored,
+          restored_session_id: restoredSessionId,
+        });
+      },
+    });
 
-  return result.toUIMessageStreamResponse();
+    return result.toUIMessageStreamResponse();
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    serverAnalytics.track("chat:ai_error", {
+      agent_id: agentId,
+      error_type: "request_error",
+      error_message: errorMessage,
+      session_id: sessionId,
+      is_restored: isRestored,
+      restored_session_id: restoredSessionId,
+    });
+
+    return new Response(
+      JSON.stringify({ type: "error", errorText: errorMessage }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }
 }
