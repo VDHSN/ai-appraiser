@@ -5,11 +5,9 @@
 
 import { PlatformAdapter } from "./types";
 import { LiveAuctioneersAdapter } from "./liveauctioneers";
-import { ProxiBidAdapter } from "./proxibid";
 
 const adapters: Record<string, PlatformAdapter> = {
   liveauctioneers: new LiveAuctioneersAdapter(),
-  proxibid: new ProxiBidAdapter(),
 };
 
 /**
