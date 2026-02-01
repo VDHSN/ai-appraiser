@@ -91,11 +91,11 @@ describe("HomePage", () => {
     const curateButton = screen.getByRole("button", { name: /curate/i });
     await user.click(curateButton);
 
-    // Should only have chat:started, not user:agent_switched
+    // Should only have chat:started, not chat:agent_switched
     expect(mockTrack).toHaveBeenCalledTimes(1);
     expect(mockTrack).toHaveBeenCalledWith("chat:started", expect.any(Object));
     expect(mockTrack).not.toHaveBeenCalledWith(
-      "user:agent_switched",
+      "chat:agent_switched",
       expect.any(Object),
     );
   });

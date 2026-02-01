@@ -182,7 +182,7 @@ export function ChatView({
   useEffect(() => {
     const targetAgent = findAgentSwitchInMessages(messages, agentId);
     if (targetAgent) {
-      analytics.track("user:agent_switched", {
+      analytics.track("chat:agent_switched", {
         from_agent: agentId,
         to_agent: targetAgent,
         source: "agent",

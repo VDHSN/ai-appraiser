@@ -356,7 +356,6 @@ describe("getToolSubsetWithContext", () => {
     });
 
     mockLiveAuctioneersAdapter.search.mockResolvedValue([{ itemId: "1" }]);
-    mockProxiBidAdapter.search.mockResolvedValue([]);
 
     await toolsWithContext.searchItems?.execute({
       keywords: "test",
@@ -367,9 +366,8 @@ describe("getToolSubsetWithContext", () => {
     const searchEvents = mock.events.filter(
       (e) => e.event === "adapter:search",
     );
-    expect(searchEvents).toHaveLength(2);
+    expect(searchEvents).toHaveLength(1);
     expect(searchEvents[0].distinctId).toBe("user-123");
-    expect(searchEvents[1].distinctId).toBe("user-123");
   });
 
   it("passes userId to getItemDetails tracking", async () => {
@@ -394,7 +392,6 @@ describe("getToolSubsetWithContext", () => {
     const toolsWithContext = getToolSubsetWithContext(["searchItems"], {});
 
     mockLiveAuctioneersAdapter.search.mockResolvedValue([{ itemId: "1" }]);
-    mockProxiBidAdapter.search.mockResolvedValue([]);
 
     await toolsWithContext.searchItems?.execute({
       keywords: "test",
