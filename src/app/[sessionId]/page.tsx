@@ -6,7 +6,7 @@
  * Renders ChatView with resumed messages if session exists.
  */
 
-import { useEffect, useMemo, useRef, use } from "react";
+import { useEffect, useRef, useState, use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { analytics } from "@/lib/analytics";
 import { validateSession } from "@/lib/chat-history";
@@ -31,17 +31,14 @@ type SessionResult =
   | { type: "not_found" };
 
 /**
- * Computes session data synchronously from URL params.
- * Returns session data or indicates session not found.
+ * Computes session result based on URL params and localStorage.
+ * This is extracted as a pure function to use in lazy state initializer.
  */
 function computeSessionResult(
   sessionId: string,
-  searchParams: URLSearchParams,
+  initialMessage: string | null,
+  agentParam: AgentId | null,
 ): SessionResult {
-  // Check for initial message in URL (new chat flow)
-  const initialMessage = searchParams.get("initial");
-  const agentParam = searchParams.get("agent") as AgentId | null;
-
   if (initialMessage) {
     return {
       type: "new_chat",
@@ -54,9 +51,7 @@ function computeSessionResult(
     };
   }
 
-  // Validate existing session
   const result = validateSession(sessionId);
-
   if (!result.valid || !result.session) {
     return { type: "not_found" };
   }
@@ -77,11 +72,13 @@ export default function SessionPage({ params }: SessionPageProps) {
   const searchParams = useSearchParams();
   const hasHandledRef = useRef(false);
 
-  // Compute session data synchronously
-  const sessionResult = useMemo(
-    () => computeSessionResult(sessionId, searchParams),
-    [sessionId, searchParams],
-  );
+  // Use lazy initializer to compute session result only once on mount
+  // This prevents recomputation when URL changes (e.g., when ?initial= is cleared)
+  const [sessionResult] = useState<SessionResult>(() => {
+    const initialMessage = searchParams.get("initial");
+    const agentParam = searchParams.get("agent") as AgentId | null;
+    return computeSessionResult(sessionId, initialMessage, agentParam);
+  });
 
   // Handle side effects (analytics, URL cleanup, redirects)
   useEffect(() => {
@@ -90,7 +87,10 @@ export default function SessionPage({ params }: SessionPageProps) {
     if (sessionResult.type === "new_chat") {
       hasHandledRef.current = true;
       // Clear the initial message from URL to prevent re-send on refresh
-      router.replace(`/${sessionId}`, { scroll: false });
+      // Use setTimeout to ensure ChatView has rendered and captured the initial message
+      setTimeout(() => {
+        router.replace(`/${sessionId}`, { scroll: false });
+      }, 0);
     } else if (sessionResult.type === "not_found") {
       hasHandledRef.current = true;
       // Fire analytics event for session not found
