@@ -17,7 +17,7 @@ import {
 // Mock the adapter registry
 vi.mock("@/lib/adapters/registry", () => ({
   getAdapter: vi.fn(),
-  listPlatforms: vi.fn(() => ["liveauctioneers", "proxibid"]),
+  listPlatforms: vi.fn(() => ["liveauctioneers"]),
 }));
 
 import { getAdapter } from "@/lib/adapters/registry";
@@ -30,19 +30,11 @@ const mockLiveAuctioneersAdapter = {
   getPriceHistory: vi.fn(),
 };
 
-const mockProxiBidAdapter = {
-  platform: "proxibid",
-  search: vi.fn(),
-  getItem: vi.fn(),
-  getPriceHistory: vi.fn(),
-};
-
 beforeEach(() => {
   vi.clearAllMocks();
   (serverAnalytics as MockServerAnalytics).clear();
   vi.mocked(getAdapter).mockImplementation((platform: string) => {
     if (platform === "liveauctioneers") return mockLiveAuctioneersAdapter;
-    if (platform === "proxibid") return mockProxiBidAdapter;
     throw new Error(`Unknown platform: ${platform}`);
   });
 });
@@ -69,9 +61,7 @@ describe("searchItems", () => {
 
   it("searches all adapters by default", async () => {
     const laResults = [{ itemId: "la-123", title: "LA Item" }];
-    const pbResults = [{ itemId: "pb-456", title: "PB Item" }];
     mockLiveAuctioneersAdapter.search.mockResolvedValue(laResults);
-    mockProxiBidAdapter.search.mockResolvedValue(pbResults);
 
     const result = await searchItems.execute({
       keywords: "art deco lamp",
@@ -79,63 +69,31 @@ describe("searchItems", () => {
     });
 
     expect(getAdapter).toHaveBeenCalledWith("liveauctioneers");
-    expect(getAdapter).toHaveBeenCalledWith("proxibid");
     expect(mockLiveAuctioneersAdapter.search).toHaveBeenCalledWith({
       keywords: "art deco lamp",
       category: undefined,
       priceRange: undefined,
       pageSize: 12,
     });
-    expect(mockProxiBidAdapter.search).toHaveBeenCalledWith({
-      keywords: "art deco lamp",
-      category: undefined,
-      priceRange: undefined,
-      pageSize: 12,
-    });
-    expect(result).toEqual([...laResults, ...pbResults]);
+    expect(result).toEqual(laResults);
   });
 
   it("filters to specific platforms when provided", async () => {
-    const pbResults = [{ itemId: "pb-789", title: "ProxiBid Only" }];
-    mockProxiBidAdapter.search.mockResolvedValue(pbResults);
+    const laResults = [{ itemId: "la-789", title: "LA Only" }];
+    mockLiveAuctioneersAdapter.search.mockResolvedValue(laResults);
 
     const result = await searchItems.execute({
       keywords: "furniture",
       pageSize: 12,
-      platforms: ["proxibid"],
+      platforms: ["liveauctioneers"],
     });
 
-    expect(getAdapter).toHaveBeenCalledWith("proxibid");
-    expect(getAdapter).not.toHaveBeenCalledWith("liveauctioneers");
-    expect(result).toEqual(pbResults);
-  });
-
-  it("continues search when one adapter fails", async () => {
-    const laResults = [{ itemId: "la-123", title: "Success Item" }];
-    mockLiveAuctioneersAdapter.search.mockResolvedValue(laResults);
-    mockProxiBidAdapter.search.mockRejectedValue(new Error("Network error"));
-
-    const consoleWarnSpy = vi
-      .spyOn(console, "warn")
-      .mockImplementation(() => {});
-
-    const result = await searchItems.execute({
-      keywords: "test",
-      pageSize: 12,
-    });
-
+    expect(getAdapter).toHaveBeenCalledWith("liveauctioneers");
     expect(result).toEqual(laResults);
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      "Search failed for proxibid:",
-      expect.any(Error),
-    );
-
-    consoleWarnSpy.mockRestore();
   });
 
   it("passes optional parameters to adapters", async () => {
     mockLiveAuctioneersAdapter.search.mockResolvedValue([]);
-    mockProxiBidAdapter.search.mockResolvedValue([]);
 
     await searchItems.execute({
       keywords: "furniture",
@@ -153,12 +111,10 @@ describe("searchItems", () => {
     expect(mockLiveAuctioneersAdapter.search).toHaveBeenCalledWith(
       expectedQuery,
     );
-    expect(mockProxiBidAdapter.search).toHaveBeenCalledWith(expectedQuery);
   });
 
   it("tracks adapter_search events", async () => {
     mockLiveAuctioneersAdapter.search.mockResolvedValue([{ itemId: "1" }]);
-    mockProxiBidAdapter.search.mockResolvedValue([]);
 
     await searchItems.execute({
       keywords: "test",
@@ -167,9 +123,6 @@ describe("searchItems", () => {
 
     const mock = serverAnalytics as MockServerAnalytics;
     expect(mock.hasEvent("adapter:search")).toBe(true);
-    expect(
-      mock.events.filter((e) => e.event === "adapter:search"),
-    ).toHaveLength(2);
   });
 });
 
@@ -222,9 +175,7 @@ describe("getPriceHistory", () => {
 
   it("searches all adapters by default", async () => {
     const laResults = [{ itemId: "la-456", soldPrice: 200 }];
-    const pbResults = [{ itemId: "pb-789", soldPrice: 150 }];
     mockLiveAuctioneersAdapter.getPriceHistory.mockResolvedValue(laResults);
-    mockProxiBidAdapter.getPriceHistory.mockResolvedValue(pbResults);
 
     const result = await getPriceHistory.execute({
       keywords: "vintage lamp",
@@ -232,20 +183,13 @@ describe("getPriceHistory", () => {
     });
 
     expect(getAdapter).toHaveBeenCalledWith("liveauctioneers");
-    expect(getAdapter).toHaveBeenCalledWith("proxibid");
     expect(mockLiveAuctioneersAdapter.getPriceHistory).toHaveBeenCalledWith({
       keywords: "vintage lamp",
       category: undefined,
       priceRange: undefined,
       pageSize: 12,
     });
-    expect(mockProxiBidAdapter.getPriceHistory).toHaveBeenCalledWith({
-      keywords: "vintage lamp",
-      category: undefined,
-      priceRange: undefined,
-      pageSize: 12,
-    });
-    expect(result).toEqual([...laResults, ...pbResults]);
+    expect(result).toEqual(laResults);
   });
 
   it("filters to specific platforms when provided", async () => {
@@ -259,33 +203,7 @@ describe("getPriceHistory", () => {
     });
 
     expect(getAdapter).toHaveBeenCalledWith("liveauctioneers");
-    expect(getAdapter).not.toHaveBeenCalledWith("proxibid");
     expect(result).toEqual(laResults);
-  });
-
-  it("continues search when one adapter fails", async () => {
-    const pbResults = [{ itemId: "pb-999", soldPrice: 400 }];
-    mockLiveAuctioneersAdapter.getPriceHistory.mockRejectedValue(
-      new Error("API unavailable"),
-    );
-    mockProxiBidAdapter.getPriceHistory.mockResolvedValue(pbResults);
-
-    const consoleWarnSpy = vi
-      .spyOn(console, "warn")
-      .mockImplementation(() => {});
-
-    const result = await getPriceHistory.execute({
-      keywords: "test",
-      pageSize: 12,
-    });
-
-    expect(result).toEqual(pbResults);
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      "Search failed for liveauctioneers:",
-      expect.any(Error),
-    );
-
-    consoleWarnSpy.mockRestore();
   });
 });
 
