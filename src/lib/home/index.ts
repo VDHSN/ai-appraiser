@@ -1,7 +1,7 @@
 /**
  * Home page state management.
- * Handles transitions between landing page and chat view.
+ * With URL-based routing, navigation is handled by Next.js router.
+ * The context is minimal and mainly for backwards compatibility.
  */
 
 export { HomeProvider, useHome } from "./HomeContext";
-export type { HomeView } from "./HomeContext";

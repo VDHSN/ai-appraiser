@@ -45,6 +45,14 @@ export interface AnalyticsEvents {
     agent_id: string;
     session_id: string;
   };
+  "chat:started": {
+    agent_id: string;
+    session_id: string;
+  };
+  "chat:session_not_found": {
+    session_id: string;
+    source: "direct_url" | "error_banner";
+  };
 
   // Auth client events
   "auth:sign_in_clicked": { source: AuthSource };
@@ -110,6 +118,8 @@ export interface ClientAnalyticsEvents {
   "agent:tool_called": AnalyticsEvents["agent:tool_called"];
   "chat:restored": AnalyticsEvents["chat:restored"];
   "chat:deleted": AnalyticsEvents["chat:deleted"];
+  "chat:started": AnalyticsEvents["chat:started"];
+  "chat:session_not_found": AnalyticsEvents["chat:session_not_found"];
   "auth:sign_in_clicked": AnalyticsEvents["auth:sign_in_clicked"];
   "auth:sign_up_clicked": AnalyticsEvents["auth:sign_up_clicked"];
   "auth:prompt_shown": AnalyticsEvents["auth:prompt_shown"];

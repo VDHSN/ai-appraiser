@@ -10,6 +10,10 @@ import { useAgent } from "@/lib/agent";
 
 interface ChatMessageProps {
   message: UIMessage;
+  /** Session ID for analytics tracking */
+  sessionId?: string | null;
+  /** Whether this chat was restored from history */
+  isRestored?: boolean;
 }
 
 function isToolPart(
@@ -23,9 +27,13 @@ function isToolPart(
   return part.type.startsWith("tool-");
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({
+  message,
+  sessionId,
+  isRestored = false,
+}: ChatMessageProps) {
   const isUser = message.role === "user";
-  const { agentId, sessionId, isRestored, restoredSessionId } = useAgent();
+  const { agentId } = useAgent();
   const trackedToolCalls = useRef<Set<string>>(new Set());
 
   // Track tool calls when they complete
@@ -40,14 +48,14 @@ export function ChatMessage({ message }: ChatMessageProps) {
             tool_params: part.input,
             agent_id: agentId,
             source: "agent",
-            session_id: sessionId,
+            session_id: sessionId ?? null,
             is_restored: isRestored,
-            restored_session_id: restoredSessionId,
+            restored_session_id: isRestored ? (sessionId ?? null) : null,
           });
         }
       }
     }
-  }, [message.parts, agentId, sessionId, isRestored, restoredSessionId]);
+  }, [message.parts, agentId, sessionId, isRestored]);
 
   return (
     <div

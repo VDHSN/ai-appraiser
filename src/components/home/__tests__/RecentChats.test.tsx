@@ -13,13 +13,7 @@ import {
   createMemoryStorageProvider,
 } from "@/lib/chat-history";
 
-// Mock dependencies
-const mockResumeChat = vi.fn();
-vi.mock("@/lib/home", () => ({
-  useHome: () => ({
-    resumeChat: mockResumeChat,
-  }),
-}));
+// No longer need useHome mock - RecentChats uses Link for navigation
 
 const mockTrack = vi.fn();
 vi.mock("@/lib/analytics", () => ({
@@ -36,6 +30,11 @@ describe("RecentChats", () => {
     setStorageProvider(memoryStorage);
     resetSessionsCache();
   });
+
+  // Helper to check if element has attribute (vitest-dom compatible)
+  const hasAttribute = (el: HTMLElement, attr: string) => {
+    return el.hasAttribute(attr);
+  };
 
   afterEach(() => {
     resetStorageProvider();
@@ -148,7 +147,7 @@ describe("RecentChats", () => {
       expect(screen.getByText("Appraiser")).toBeDefined();
     });
 
-    it("calls resumeChat and tracks chat:restored when clicking a session", async () => {
+    it("tracks chat:restored and renders as Link when clicking a session", async () => {
       const user = userEvent.setup();
       const messages = [{ id: "m1", role: "user", parts: [] }];
       const sessions = [
@@ -168,19 +167,19 @@ describe("RecentChats", () => {
 
       render(<RecentChats />);
 
-      const chatButton = screen.getByTestId("recent-chat-item");
-      await user.click(chatButton);
+      const chatLink = screen.getByTestId("recent-chat-item");
+      // Verify it's a link with correct href
+      expect(chatLink.tagName.toLowerCase()).toBe("a");
+      expect(chatLink.getAttribute("href")).toBe("/session-1");
 
+      await user.click(chatLink);
+
+      // Analytics should still be tracked on click
       expect(mockTrack).toHaveBeenCalledWith("chat:restored", {
         chat_title: "Clickable chat",
         agent_id: "curator",
         session_id: "session-1",
       });
-      expect(mockResumeChat).toHaveBeenCalledWith(
-        "session-1",
-        "curator",
-        messages,
-      );
     });
 
     it("displays relative time for each session", () => {

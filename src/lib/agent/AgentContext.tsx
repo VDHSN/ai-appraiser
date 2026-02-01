@@ -19,7 +19,6 @@ import type { AgentId } from "./types";
 import { AgentIdSchema } from "./types";
 import { getAgent, getDefaultAgentId } from "./agents";
 import type { AgentConfig } from "./types";
-import { useHome } from "@/lib/home";
 
 const STORAGE_KEY = "apprAIser:agentId";
 
@@ -28,11 +27,17 @@ interface AgentContextValue {
   setAgentId: (id: AgentId) => void;
   agent: AgentConfig;
   isHydrated: boolean;
-  /** Current chat session ID (null when on landing page) */
-  sessionId: string | null;
-  /** Whether the current chat was restored from history */
+  /**
+   * Whether the current chat was restored from history.
+   * Note: With URL-based routing, this is now managed by ChatView.
+   * Kept for backwards compatibility.
+   */
   isRestored: boolean;
-  /** Session ID of the restored chat (same as sessionId when restored, null otherwise) */
+  /**
+   * Session ID of the restored chat.
+   * Note: With URL-based routing, this is now managed by ChatView.
+   * Kept for backwards compatibility.
+   */
   restoredSessionId: string | null;
 }
 
@@ -82,11 +87,6 @@ export function AgentProvider({ children }: { children: ReactNode }) {
 
   const [isHydrated, setIsHydrated] = useState(false);
 
-  // Get session state from HomeContext for analytics
-  const { sessionId, resumeMessages } = useHome();
-  const isRestored = resumeMessages !== null;
-  const restoredSessionId = isRestored ? sessionId : null;
-
   // Track hydration - this is intentional post-mount state update
   useEffect(() => {
     setIsHydrated(true); // eslint-disable-line react-hooks/set-state-in-effect
@@ -99,6 +99,9 @@ export function AgentProvider({ children }: { children: ReactNode }) {
 
   const agent = getAgent(agentId);
 
+  // Session tracking is now managed by ChatView component
+  // These values are kept for backwards compatibility but are always false/null
+  // Analytics tracking happens in ChatView where session state is known
   return (
     <AgentContext.Provider
       value={{
@@ -106,9 +109,8 @@ export function AgentProvider({ children }: { children: ReactNode }) {
         setAgentId,
         agent,
         isHydrated,
-        sessionId,
-        isRestored,
-        restoredSessionId,
+        isRestored: false,
+        restoredSessionId: null,
       }}
     >
       {children}
