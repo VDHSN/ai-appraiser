@@ -12,13 +12,13 @@ export type AuthSource = "header" | "agent_prompt";
 // All tracked events with their properties
 export interface AnalyticsEvents {
   // Client events (user-initiated, no server context)
-  "user:link_clicked": {
+  "chat:link_clicked": {
     item_id: string;
     platform: string;
     url: string;
     source: "user";
   };
-  "user:agent_switched": {
+  "chat:agent_switched": {
     from_agent: string;
     to_agent: string;
     source: EventSource;
@@ -121,8 +121,8 @@ export interface UserProperties {
 
 // Client-only events (user-initiated)
 export interface ClientAnalyticsEvents {
-  "user:link_clicked": AnalyticsEvents["user:link_clicked"];
-  "user:agent_switched": AnalyticsEvents["user:agent_switched"];
+  "chat:link_clicked": AnalyticsEvents["chat:link_clicked"];
+  "chat:agent_switched": AnalyticsEvents["chat:agent_switched"];
   "agent:tool_called": AnalyticsEvents["agent:tool_called"];
   "chat:restored": AnalyticsEvents["chat:restored"];
   "chat:deleted": AnalyticsEvents["chat:deleted"];

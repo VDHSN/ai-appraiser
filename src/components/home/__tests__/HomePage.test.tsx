@@ -100,7 +100,7 @@ describe("HomePage", () => {
     );
   });
 
-  it("tracks user:agent_switched when selecting appraiser agent", async () => {
+  it("tracks chat:agent_switched when selecting appraiser agent", async () => {
     const user = userEvent.setup();
     render(<HomePage />);
 
@@ -110,7 +110,7 @@ describe("HomePage", () => {
     const appraiseButton = screen.getByRole("button", { name: /appraise/i });
     await user.click(appraiseButton);
 
-    expect(mockTrack).toHaveBeenCalledWith("user:agent_switched", {
+    expect(mockTrack).toHaveBeenCalledWith("chat:agent_switched", {
       from_agent: "curator",
       to_agent: "appraiser",
       source: "user",
