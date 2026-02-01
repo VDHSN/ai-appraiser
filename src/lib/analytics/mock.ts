@@ -22,6 +22,10 @@ export class MockClientAnalytics implements ClientAnalytics {
     this.initialized = true;
   }
 
+  isInitialized(): boolean {
+    return this.initialized;
+  }
+
   track<E extends keyof ClientAnalyticsEvents>(
     event: E,
     properties: ClientAnalyticsEvents[E],
