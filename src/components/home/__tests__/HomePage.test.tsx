@@ -91,16 +91,16 @@ describe("HomePage", () => {
     const curateButton = screen.getByRole("button", { name: /curate/i });
     await user.click(curateButton);
 
-    // Should only have chat:started, not user:agent_switched
+    // Should only have chat:started, not chat:agent_switched
     expect(mockTrack).toHaveBeenCalledTimes(1);
     expect(mockTrack).toHaveBeenCalledWith("chat:started", expect.any(Object));
     expect(mockTrack).not.toHaveBeenCalledWith(
-      "user:agent_switched",
+      "chat:agent_switched",
       expect.any(Object),
     );
   });
 
-  it("tracks user:agent_switched when selecting appraiser agent", async () => {
+  it("tracks chat:agent_switched when selecting appraiser agent", async () => {
     const user = userEvent.setup();
     render(<HomePage />);
 
@@ -110,7 +110,7 @@ describe("HomePage", () => {
     const appraiseButton = screen.getByRole("button", { name: /appraise/i });
     await user.click(appraiseButton);
 
-    expect(mockTrack).toHaveBeenCalledWith("user:agent_switched", {
+    expect(mockTrack).toHaveBeenCalledWith("chat:agent_switched", {
       from_agent: "curator",
       to_agent: "appraiser",
       source: "user",

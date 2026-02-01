@@ -12,6 +12,7 @@ import {
   getPriceHistory,
   assessValue,
   tools,
+  getToolSubsetWithContext,
 } from "../index";
 
 // Mock the adapter registry
@@ -343,5 +344,76 @@ describe("assessValue", () => {
     });
 
     expect(result.recommendation).toContain("professional appraisal");
+  });
+});
+
+// --- getToolSubsetWithContext ---
+
+describe("getToolSubsetWithContext", () => {
+  it("creates tools with userId for analytics attribution", async () => {
+    const toolsWithContext = getToolSubsetWithContext(["searchItems"], {
+      userId: "user-123",
+    });
+
+    mockLiveAuctioneersAdapter.search.mockResolvedValue([{ itemId: "1" }]);
+
+    await toolsWithContext.searchItems?.execute({
+      keywords: "test",
+      pageSize: 12,
+    });
+
+    const mock = serverAnalytics as MockServerAnalytics;
+    const searchEvents = mock.events.filter(
+      (e) => e.event === "adapter:search",
+    );
+    expect(searchEvents).toHaveLength(1);
+    expect(searchEvents[0].distinctId).toBe("user-123");
+  });
+
+  it("passes userId to getItemDetails tracking", async () => {
+    const toolsWithContext = getToolSubsetWithContext(["getItemDetails"], {
+      userId: "user-456",
+    });
+
+    const mockItem = { id: "la-123", title: "Test Item" };
+    mockLiveAuctioneersAdapter.getItem.mockResolvedValue(mockItem);
+
+    await toolsWithContext.getItemDetails?.execute({
+      platform: "liveauctioneers",
+      itemId: "12345",
+    });
+
+    const mock = serverAnalytics as MockServerAnalytics;
+    const getItemEvent = mock.findEvent("adapter:get_item");
+    expect(getItemEvent?.distinctId).toBe("user-456");
+  });
+
+  it("uses undefined distinctId when no userId provided", async () => {
+    const toolsWithContext = getToolSubsetWithContext(["searchItems"], {});
+
+    mockLiveAuctioneersAdapter.search.mockResolvedValue([{ itemId: "1" }]);
+
+    await toolsWithContext.searchItems?.execute({
+      keywords: "test",
+      pageSize: 12,
+    });
+
+    const mock = serverAnalytics as MockServerAnalytics;
+    const searchEvents = mock.events.filter(
+      (e) => e.event === "adapter:search",
+    );
+    expect(searchEvents[0].distinctId).toBeUndefined();
+  });
+
+  it("returns only requested tool subset", () => {
+    const toolsWithContext = getToolSubsetWithContext(
+      ["searchItems", "assessValue"],
+      { userId: "user-789" },
+    );
+
+    expect(toolsWithContext.searchItems).toBeDefined();
+    expect(toolsWithContext.assessValue).toBeDefined();
+    expect(toolsWithContext.getItemDetails).toBeUndefined();
+    expect(toolsWithContext.getPriceHistory).toBeUndefined();
   });
 });

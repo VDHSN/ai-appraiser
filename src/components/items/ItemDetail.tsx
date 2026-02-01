@@ -123,7 +123,7 @@ export function ItemDetail({ item }: ItemDetailProps) {
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => {
-              analytics.track("user:link_clicked", {
+              analytics.track("chat:link_clicked", {
                 item_id: item.id,
                 platform: item.platform,
                 url: item.url,

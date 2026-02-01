@@ -33,7 +33,7 @@ export function HomePage() {
 
     // Track agent selection if different from default
     if (agent !== DEFAULT_AGENT) {
-      analytics.track("user:agent_switched", {
+      analytics.track("chat:agent_switched", {
         from_agent: DEFAULT_AGENT,
         to_agent: agent,
         source: "user",
