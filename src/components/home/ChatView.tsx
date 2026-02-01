@@ -151,17 +151,19 @@ export function ChatView({
   }, [resumeMessages, messages.length, setMessages, initialAgentId, agentId]);
 
   // Send the initial message when starting a new chat (not resume)
+  // Wait for agent to sync if initialAgentId was specified
   useEffect(() => {
-    if (
-      initialMessage &&
-      !resumeMessages &&
-      !hasInitializedRef.current &&
-      messages.length === 0 &&
-      (!initialAgentId || initialAgentId === agentId)
-    ) {
-      hasInitializedRef.current = true;
-      sendMessage({ text: initialMessage });
-    }
+    // Don't send if no initial message or if resuming
+    if (!initialMessage || resumeMessages) return;
+    // Don't send if already initialized
+    if (hasInitializedRef.current) return;
+    // Don't send if there are already messages
+    if (messages.length > 0) return;
+    // Wait for agent to sync if initialAgentId was specified
+    if (initialAgentId && initialAgentId !== agentId) return;
+
+    hasInitializedRef.current = true;
+    sendMessage({ text: initialMessage });
   }, [
     initialMessage,
     resumeMessages,
