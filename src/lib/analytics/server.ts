@@ -21,8 +21,14 @@ class PostHogServerAnalytics implements ServerAnalytics {
     event: E,
     properties: ServerAnalyticsEvents[E],
   ) {
+    // Extract user_id if present for proper user attribution
+    const distinctId =
+      "user_id" in properties && typeof properties.user_id === "string"
+        ? properties.user_id
+        : "server";
+
     this.client.capture({
-      distinctId: "server",
+      distinctId,
       event,
       properties,
     });

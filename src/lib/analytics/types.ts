@@ -151,6 +151,9 @@ export interface ClientAnalytics {
   // Initialize (call once on app load)
   init(apiKey: string, options?: { host?: string }): void;
 
+  // Check if analytics is initialized
+  isInitialized(): boolean;
+
   // Track client events only
   track<E extends keyof ClientAnalyticsEvents>(
     event: E,
