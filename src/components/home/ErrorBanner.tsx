@@ -6,7 +6,7 @@
  * Clears error param after display and fires analytics event.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { analytics } from "@/lib/analytics";
 
@@ -17,12 +17,24 @@ const ERROR_MESSAGES: Record<string, string> = {
 export function ErrorBanner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const hasHandledRef = useRef(false);
 
-  useEffect(() => {
+  // Compute error message synchronously from URL params
+  const errorMessage = useMemo(() => {
     const error = searchParams.get("error");
     if (error && ERROR_MESSAGES[error]) {
-      setErrorMessage(ERROR_MESSAGES[error]);
+      return ERROR_MESSAGES[error];
+    }
+    return null;
+  }, [searchParams]);
+
+  // Handle side effects (analytics, URL cleanup)
+  useEffect(() => {
+    if (hasHandledRef.current) return;
+
+    const error = searchParams.get("error");
+    if (error && ERROR_MESSAGES[error]) {
+      hasHandledRef.current = true;
 
       // Fire analytics event
       if (error === "session_not_found") {

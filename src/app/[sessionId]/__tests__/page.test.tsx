@@ -59,13 +59,7 @@ vi.mock("@/components/home", () => ({
 }));
 
 // Wrapper component with Suspense for use() hook
-function TestWrapper({
-  sessionId,
-  children,
-}: {
-  sessionId: string;
-  children?: React.ReactNode;
-}) {
+function TestWrapper({ sessionId }: { sessionId: string }) {
   return (
     <Suspense fallback={<div data-testid="suspense-fallback">Loading...</div>}>
       <SessionPage params={Promise.resolve({ sessionId })} />

@@ -8,7 +8,6 @@
 
 import { useEffect, useRef, useState, useMemo, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useChat, type UIMessage } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { analytics } from "@/lib/analytics";

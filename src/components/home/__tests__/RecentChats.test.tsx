@@ -31,11 +31,6 @@ describe("RecentChats", () => {
     resetSessionsCache();
   });
 
-  // Helper to check if element has attribute (vitest-dom compatible)
-  const hasAttribute = (el: HTMLElement, attr: string) => {
-    return el.hasAttribute(attr);
-  };
-
   afterEach(() => {
     resetStorageProvider();
     resetSessionsCache();
