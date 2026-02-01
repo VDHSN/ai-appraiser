@@ -45,6 +45,14 @@ export interface AnalyticsEvents {
     agent_id: string;
     session_id: string;
   };
+  "chat:started": {
+    agent_id: string;
+    session_id: string;
+  };
+  "chat:session_not_found": {
+    session_id: string;
+    source: "direct_url" | "error_banner";
+  };
 
   // Auth client events
   "auth:sign_in_clicked": { source: AuthSource };
@@ -88,6 +96,14 @@ export interface AnalyticsEvents {
     is_restored: boolean;
     restored_session_id: string | null;
   };
+  "chat:ai_error": {
+    agent_id: string;
+    error_type: string;
+    error_message: string;
+    session_id: string | null;
+    is_restored: boolean;
+    restored_session_id: string | null;
+  };
 
   // Auth server events (from Clerk webhooks)
   "auth:sign_up": { user_id: string; method: string; source: string };
@@ -110,6 +126,8 @@ export interface ClientAnalyticsEvents {
   "agent:tool_called": AnalyticsEvents["agent:tool_called"];
   "chat:restored": AnalyticsEvents["chat:restored"];
   "chat:deleted": AnalyticsEvents["chat:deleted"];
+  "chat:started": AnalyticsEvents["chat:started"];
+  "chat:session_not_found": AnalyticsEvents["chat:session_not_found"];
   "auth:sign_in_clicked": AnalyticsEvents["auth:sign_in_clicked"];
   "auth:sign_up_clicked": AnalyticsEvents["auth:sign_up_clicked"];
   "auth:prompt_shown": AnalyticsEvents["auth:prompt_shown"];
@@ -122,6 +140,7 @@ export interface ServerAnalyticsEvents {
   "adapter:get_item": AnalyticsEvents["adapter:get_item"];
   "chat:user_message": AnalyticsEvents["chat:user_message"];
   "chat:agent_response": AnalyticsEvents["chat:agent_response"];
+  "chat:ai_error": AnalyticsEvents["chat:ai_error"];
   "auth:sign_up": AnalyticsEvents["auth:sign_up"];
   "auth:sign_in": AnalyticsEvents["auth:sign_in"];
   "auth:sign_out": AnalyticsEvents["auth:sign_out"];

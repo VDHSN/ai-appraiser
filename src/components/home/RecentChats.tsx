@@ -7,8 +7,8 @@
  */
 
 import { useSyncExternalStore, useCallback, useState } from "react";
+import Link from "next/link";
 import { analytics } from "@/lib/analytics";
-import { useHome } from "@/lib/home";
 import {
   getRecentSessionSummaries,
   getSession,
@@ -127,7 +127,6 @@ function getServerSessionsSnapshot(): ChatSessionSummary[] {
 }
 
 export function RecentChats() {
-  const { resumeChat } = useHome();
   const [activeSwipedId, setActiveSwipedId] = useState<string | null>(null);
 
   const sessions = useSyncExternalStore(
@@ -136,19 +135,15 @@ export function RecentChats() {
     getServerSessionsSnapshot,
   );
 
-  const handleResumeChat = useCallback(
-    (sessionId: string, preview: string) => {
-      const session = getSession(sessionId);
-      if (session) {
-        analytics.track("chat:restored", {
-          chat_title: preview,
-          agent_id: session.agentId,
-          session_id: session.id,
-        });
-        resumeChat(session.id, session.agentId, session.messages);
-      }
+  const handleLinkClick = useCallback(
+    (sessionId: string, preview: string, agentId: string) => {
+      analytics.track("chat:restored", {
+        chat_title: preview,
+        agent_id: agentId,
+        session_id: sessionId,
+      });
     },
-    [resumeChat],
+    [],
   );
 
   const handleSwipeOpen = useCallback((id: string) => {
@@ -184,8 +179,11 @@ export function RecentChats() {
             onSwipeOpen={handleSwipeOpen}
             onDelete={handleDelete}
           >
-            <button
-              onClick={() => handleResumeChat(session.id, session.preview)}
+            <Link
+              href={`/${session.id}`}
+              onClick={() =>
+                handleLinkClick(session.id, session.preview, session.agentId)
+              }
               className="flex w-full items-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-left transition-colors hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
               data-testid="recent-chat-item"
             >
@@ -200,7 +198,7 @@ export function RecentChats() {
               <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                 {getAgentDisplayName(session.agentId)}
               </span>
-            </button>
+            </Link>
           </SwipeableChatItem>
         ))}
       </div>

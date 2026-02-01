@@ -1,5 +1,5 @@
-import { NewUIContainer } from "@/components/home";
+import { HomePage } from "@/components/home";
 
 export default function Home() {
-  return <NewUIContainer />;
+  return <HomePage />;
 }

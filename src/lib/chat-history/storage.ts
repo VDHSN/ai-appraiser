@@ -79,6 +79,13 @@ export function getSession(sessionId: string): ChatSession | null {
 }
 
 /**
+ * Check if a session exists by ID.
+ */
+export function sessionExists(sessionId: string): boolean {
+  return getAllSessions().some((s) => s.id === sessionId);
+}
+
+/**
  * Save or update a chat session.
  */
 export function saveSession(
