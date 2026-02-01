@@ -73,14 +73,19 @@ export class MockClientAnalytics implements ClientAnalytics {
 
 // Mock for server-side analytics
 export class MockServerAnalytics implements ServerAnalytics {
-  public events: Array<{ event: string; properties: unknown }> = [];
+  public events: Array<{
+    event: string;
+    properties: unknown;
+    distinctId?: string;
+  }> = [];
   public exceptions: Error[] = [];
 
   track<E extends keyof ServerAnalyticsEvents>(
     event: E,
     properties: ServerAnalyticsEvents[E],
+    distinctId?: string,
   ) {
-    this.events.push({ event, properties });
+    this.events.push({ event, properties, distinctId });
   }
 
   captureException(error: Error) {

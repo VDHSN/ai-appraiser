@@ -5,6 +5,10 @@ vi.mock("@/lib/analytics/server", () => ({
   serverAnalytics: { track: vi.fn() },
 }));
 
+vi.mock("@clerk/nextjs/server", () => ({
+  auth: vi.fn(() => Promise.resolve({ userId: "test-user-123" })),
+}));
+
 vi.mock("@/lib/analytics/llm", () => ({
   getTracedModel: vi.fn(() => ({})),
 }));
@@ -18,7 +22,7 @@ vi.mock("ai", () => ({
 }));
 
 vi.mock("@/lib/tools", () => ({
-  getToolSubset: vi.fn(() => ({})),
+  getToolSubsetWithContext: vi.fn(() => ({})),
 }));
 
 vi.mock("@/lib/agent", async (importOriginal) => {
@@ -36,8 +40,12 @@ vi.mock("@/lib/agent", async (importOriginal) => {
 
 import { POST } from "../route";
 import { serverAnalytics } from "@/lib/analytics/server";
+import { auth } from "@clerk/nextjs/server";
+import { getToolSubsetWithContext } from "@/lib/tools";
 
 const mockTrack = vi.mocked(serverAnalytics.track);
+const mockAuth = vi.mocked(auth);
+const mockGetToolSubsetWithContext = vi.mocked(getToolSubsetWithContext);
 
 describe("Chat API Route", () => {
   beforeEach(() => {
@@ -68,6 +76,7 @@ describe("Chat API Route", () => {
           is_restored: true,
           restored_session_id: "test-session-123",
         }),
+        expect.anything(),
       );
     });
 
@@ -92,6 +101,7 @@ describe("Chat API Route", () => {
           is_restored: false,
           restored_session_id: null,
         }),
+        expect.anything(),
       );
     });
 
@@ -116,6 +126,7 @@ describe("Chat API Route", () => {
           is_restored: false,
           restored_session_id: null,
         }),
+        expect.anything(),
       );
     });
 
@@ -139,14 +150,83 @@ describe("Chat API Route", () => {
 
       await POST(request);
 
-      expect(mockTrack).toHaveBeenCalledWith("chat:user_message", {
-        agent_id: "appraiser",
-        content: "test message",
-        message_length: 12,
-        session_id: "session-abc",
-        is_restored: false,
-        restored_session_id: null,
+      expect(mockTrack).toHaveBeenCalledWith(
+        "chat:user_message",
+        {
+          agent_id: "appraiser",
+          content: "test message",
+          message_length: 12,
+          session_id: "session-abc",
+          is_restored: false,
+          restored_session_id: null,
+        },
+        "test-user-123",
+      );
+    });
+  });
+
+  describe("user attribution", () => {
+    it("passes userId as distinctId to analytics track", async () => {
+      mockAuth.mockResolvedValueOnce({ userId: "user-abc-123" } as never);
+
+      const request = new Request("http://localhost/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          messages: [
+            { id: "1", role: "user", parts: [{ type: "text", text: "hello" }] },
+          ],
+          agentId: "curator",
+        }),
       });
+
+      await POST(request);
+
+      expect(mockTrack).toHaveBeenCalledWith(
+        "chat:user_message",
+        expect.any(Object),
+        "user-abc-123",
+      );
+    });
+
+    it("passes undefined distinctId when user is not authenticated", async () => {
+      mockAuth.mockResolvedValueOnce({ userId: null } as never);
+
+      const request = new Request("http://localhost/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          messages: [
+            { id: "1", role: "user", parts: [{ type: "text", text: "hello" }] },
+          ],
+          agentId: "curator",
+        }),
+      });
+
+      await POST(request);
+
+      expect(mockTrack).toHaveBeenCalledWith(
+        "chat:user_message",
+        expect.any(Object),
+        undefined,
+      );
+    });
+
+    it("passes userId context to tools", async () => {
+      mockAuth.mockResolvedValueOnce({ userId: "tool-user-456" } as never);
+
+      const request = new Request("http://localhost/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          messages: [],
+          agentId: "curator",
+        }),
+      });
+
+      await POST(request);
+
+      expect(mockGetToolSubsetWithContext).toHaveBeenCalledWith(
+        expect.any(Array),
+        { userId: "tool-user-456" },
+      );
     });
   });
 

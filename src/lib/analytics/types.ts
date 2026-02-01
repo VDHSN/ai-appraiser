@@ -178,9 +178,11 @@ export interface ClientAnalytics {
 // Server analytics interface (Node.js only)
 export interface ServerAnalytics {
   // Track server events only
+  // distinctId links event to a user in PostHog (use Clerk user ID)
   track<E extends keyof ServerAnalyticsEvents>(
     event: E,
     properties: ServerAnalyticsEvents[E],
+    distinctId?: string,
   ): void;
 
   // Error tracking

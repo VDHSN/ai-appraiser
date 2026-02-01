@@ -20,15 +20,17 @@ class PostHogServerAnalytics implements ServerAnalytics {
   track<E extends keyof ServerAnalyticsEvents>(
     event: E,
     properties: ServerAnalyticsEvents[E],
+    distinctId?: string,
   ) {
-    // Extract user_id if present for proper user attribution
-    const distinctId =
-      "user_id" in properties && typeof properties.user_id === "string"
+    // Explicit param takes precedence, then auto-extract from user_id, then fallback
+    const resolvedDistinctId =
+      distinctId ??
+      ("user_id" in properties && typeof properties.user_id === "string"
         ? properties.user_id
-        : "server";
+        : "anonymous-server");
 
     this.client.capture({
-      distinctId,
+      distinctId: resolvedDistinctId,
       event,
       properties,
     });

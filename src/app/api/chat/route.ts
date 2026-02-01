@@ -5,9 +5,10 @@
 
 import { streamText, UIMessage, convertToModelMessages, stepCountIs } from "ai";
 import { z } from "zod";
+import { auth } from "@clerk/nextjs/server";
 import { getTracedModel } from "@/lib/analytics/llm";
 import { serverAnalytics } from "@/lib/analytics/server";
-import { getToolSubset } from "@/lib/tools";
+import { getToolSubsetWithContext } from "@/lib/tools";
 import { getAgent, AgentIdSchema, getDefaultAgentId } from "@/lib/agent";
 
 function extractTextContent(message: UIMessage): string {
@@ -43,8 +44,12 @@ export async function POST(req: Request) {
     isRestored = false,
     restoredSessionId = null,
   } = parsed.data;
+
+  const { userId } = await auth();
   const agent = getAgent(agentId);
-  const tools = getToolSubset(agent.toolIds);
+  const tools = getToolSubsetWithContext(agent.toolIds, {
+    userId: userId ?? undefined,
+  });
 
   // Track user message
   const lastUserMessage = (messages as UIMessage[]).findLast(
@@ -52,14 +57,18 @@ export async function POST(req: Request) {
   );
   if (lastUserMessage) {
     const content = extractTextContent(lastUserMessage);
-    serverAnalytics.track("chat:user_message", {
-      agent_id: agentId,
-      content,
-      message_length: content.length,
-      session_id: sessionId,
-      is_restored: isRestored,
-      restored_session_id: restoredSessionId,
-    });
+    serverAnalytics.track(
+      "chat:user_message",
+      {
+        agent_id: agentId,
+        content,
+        message_length: content.length,
+        session_id: sessionId,
+        is_restored: isRestored,
+        restored_session_id: restoredSessionId,
+      },
+      userId ?? undefined,
+    );
   }
 
   try {
@@ -70,28 +79,36 @@ export async function POST(req: Request) {
       tools,
       stopWhen: stepCountIs(agent.maxSteps ?? 7),
       onFinish: ({ text, toolCalls }) => {
-        serverAnalytics.track("chat:agent_response", {
-          agent_id: agentId,
-          content: text,
-          response_length: text.length,
-          has_tool_calls: toolCalls.length > 0,
-          tool_count: toolCalls.length,
-          session_id: sessionId,
-          is_restored: isRestored,
-          restored_session_id: restoredSessionId,
-        });
+        serverAnalytics.track(
+          "chat:agent_response",
+          {
+            agent_id: agentId,
+            content: text,
+            response_length: text.length,
+            has_tool_calls: toolCalls.length > 0,
+            tool_count: toolCalls.length,
+            session_id: sessionId,
+            is_restored: isRestored,
+            restored_session_id: restoredSessionId,
+          },
+          userId ?? undefined,
+        );
       },
       onError: ({ error }) => {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        serverAnalytics.track("chat:ai_error", {
-          agent_id: agentId,
-          error_type: "stream_error",
-          error_message: errorMessage,
-          session_id: sessionId,
-          is_restored: isRestored,
-          restored_session_id: restoredSessionId,
-        });
+        serverAnalytics.track(
+          "chat:ai_error",
+          {
+            agent_id: agentId,
+            error_type: "stream_error",
+            error_message: errorMessage,
+            session_id: sessionId,
+            is_restored: isRestored,
+            restored_session_id: restoredSessionId,
+          },
+          userId ?? undefined,
+        );
       },
     });
 
@@ -99,14 +116,18 @@ export async function POST(req: Request) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
 
-    serverAnalytics.track("chat:ai_error", {
-      agent_id: agentId,
-      error_type: "request_error",
-      error_message: errorMessage,
-      session_id: sessionId,
-      is_restored: isRestored,
-      restored_session_id: restoredSessionId,
-    });
+    serverAnalytics.track(
+      "chat:ai_error",
+      {
+        agent_id: agentId,
+        error_type: "request_error",
+        error_message: errorMessage,
+        session_id: sessionId,
+        is_restored: isRestored,
+        restored_session_id: restoredSessionId,
+      },
+      userId ?? undefined,
+    );
 
     return new Response(
       JSON.stringify({ type: "error", errorText: errorMessage }),

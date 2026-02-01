@@ -35,23 +35,35 @@ export async function POST(req: Request) {
 
   switch (evt.type) {
     case "user.created":
-      serverAnalytics.track("auth:sign_up", {
-        user_id: evt.data.id,
-        method: evt.data.external_accounts?.[0]?.provider ?? "email",
-        source: "webhook",
-      });
+      serverAnalytics.track(
+        "auth:sign_up",
+        {
+          user_id: evt.data.id,
+          method: evt.data.external_accounts?.[0]?.provider ?? "email",
+          source: "webhook",
+        },
+        evt.data.id,
+      );
       break;
 
     case "session.created":
-      serverAnalytics.track("auth:sign_in", {
-        user_id: evt.data.user_id,
-      });
+      serverAnalytics.track(
+        "auth:sign_in",
+        {
+          user_id: evt.data.user_id,
+        },
+        evt.data.user_id,
+      );
       break;
 
     case "session.ended":
-      serverAnalytics.track("auth:sign_out", {
-        user_id: evt.data.user_id,
-      });
+      serverAnalytics.track(
+        "auth:sign_out",
+        {
+          user_id: evt.data.user_id,
+        },
+        evt.data.user_id,
+      );
       break;
   }
 
