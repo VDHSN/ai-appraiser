@@ -21,8 +21,8 @@ const INTEGRATION_TIMEOUT = 30000;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe.skipIf(SKIP_INTEGRATION)("ProxiBid Integration", () => {
-  // Rate-limited adapter to avoid 403s (1 request every 3 seconds)
-  const limiter = new RateLimiter({ requestsPerSecond: 0.33, maxBurst: 1 });
+  // Rate-limited adapter to avoid 403s (1 request every 5 seconds)
+  const limiter = new RateLimiter({ requestsPerSecond: 0.2, maxBurst: 1 });
   const rateLimitedFetch = createRateLimitedFetch(limiter);
   const adapter = new ProxiBidAdapter({ fetchFn: rateLimitedFetch });
 

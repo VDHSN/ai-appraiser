@@ -616,7 +616,7 @@ describe("ProxiBidAdapter", () => {
       expect(calledUrl).toContain("length=50");
     });
 
-    it("includes required headers", async () => {
+    it("makes GET request with minimal headers", async () => {
       const mockFetch = createMockFetch([
         { ok: true, data: { item: [], totalResultCount: 0 } },
       ]);
@@ -625,9 +625,9 @@ describe("ProxiBidAdapter", () => {
       await adapter.search({ keywords: "test" });
 
       const options = mockFetch.mock.calls[0][1] as RequestInit;
-      expect(options.headers).toMatchObject({
-        Referer: "https://www.proxibid.com/",
-      });
+      expect(options.method).toBe("GET");
+      // Minimal headers - Proxibid WAF requires JS challenge, not specific headers
+      expect(options.headers).toEqual({});
     });
 
     it("handles empty results", async () => {

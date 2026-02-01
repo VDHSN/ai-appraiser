@@ -40,6 +40,7 @@
     "react-hook-form": "^7.71.1",
     "streamdown": "^1.6.10",
     "svix": "^1.84.1",
+    "undici": "^7.6.0",
     "zod": "^4.3.5",
     "zustand": "^5.0.10"
   },

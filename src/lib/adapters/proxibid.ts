@@ -1,6 +1,19 @@
 /**
  * ProxiBid platform adapter.
  * Implements search, item details (via HTML scraping), and price history.
+ *
+ * ## WAF Behavior (Incapsula/Imperva)
+ *
+ * Proxibid uses Incapsula WAF which requires JavaScript challenge completion
+ * before allowing API access. Direct fetch/curl calls will be blocked (403)
+ * unless the client has completed the JS challenge in a browser session.
+ *
+ * When blocked, the adapter returns empty results rather than throwing errors,
+ * allowing the application to gracefully degrade.
+ *
+ * For reliable access, consider:
+ * 1. A background worker with headless browser to pre-fetch and cache results
+ * 2. Using the Proxibid website directly for real-time searches
  */
 
 import { JSDOM } from "jsdom";
@@ -48,12 +61,8 @@ const SEARCH_URL = "https://www.proxibid.com/asp/SearchBuilder.asp";
 const BASE_URL = "https://www.proxibid.com";
 const IMAGE_BASE_URL = "https://images.proxibid.com/AuctionImages";
 
-const REQUIRED_HEADERS: HeadersInit = {
-  Accept: "application/json, text/html",
-  "User-Agent":
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-  Referer: "https://www.proxibid.com/",
-};
+// Minimal headers - Proxibid works with bare requests
+const REQUIRED_HEADERS: HeadersInit = {};
 
 const PLATFORM = "proxibid" as const;
 
