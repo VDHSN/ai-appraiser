@@ -1,15 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, act } from "@testing-library/react";
-import { AnalyticsIdentifier } from "../AnalyticsIdentifier";
+import {
+  AnalyticsIdentifier,
+  resetIdentifierState,
+} from "../AnalyticsIdentifier";
 
 // Mock analytics
 const mockIdentify = vi.fn();
 const mockReset = vi.fn();
+const mockIsInitialized = vi.fn().mockReturnValue(true);
 
 vi.mock("@/lib/analytics", () => ({
   analytics: {
     identify: (...args: unknown[]) => mockIdentify(...args),
     reset: () => mockReset(),
+    isInitialized: () => mockIsInitialized(),
   },
 }));
 
@@ -22,6 +27,8 @@ vi.mock("@clerk/nextjs", () => ({
 describe("AnalyticsIdentifier", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockIsInitialized.mockReturnValue(true);
+    resetIdentifierState();
   });
 
   it("does not call identify when auth is loading", () => {
@@ -50,11 +57,11 @@ describe("AnalyticsIdentifier", () => {
     expect(mockReset).not.toHaveBeenCalled();
   });
 
-  it("calls identify with user email when user is signed in", () => {
+  it("calls identify with user primary email when user is signed in", () => {
     const mockUser = {
       id: "user_123",
       fullName: "John Doe",
-      emailAddresses: [{ emailAddress: "john@example.com" }],
+      primaryEmailAddress: { emailAddress: "john@example.com" },
     };
 
     mockUseUser.mockReturnValue({
@@ -72,11 +79,11 @@ describe("AnalyticsIdentifier", () => {
     });
   });
 
-  it("handles user without email gracefully", () => {
+  it("handles user without primary email gracefully", () => {
     const mockUser = {
       id: "user_456",
       fullName: "Jane Doe",
-      emailAddresses: [],
+      primaryEmailAddress: null,
     };
 
     mockUseUser.mockReturnValue({
@@ -97,7 +104,7 @@ describe("AnalyticsIdentifier", () => {
     const mockUser = {
       id: "user_789",
       fullName: null,
-      emailAddresses: [{ emailAddress: "test@example.com" }],
+      primaryEmailAddress: { emailAddress: "test@example.com" },
     };
 
     mockUseUser.mockReturnValue({
@@ -114,11 +121,31 @@ describe("AnalyticsIdentifier", () => {
     });
   });
 
+  it("does not call identify when analytics is not initialized", () => {
+    mockIsInitialized.mockReturnValue(false);
+
+    const mockUser = {
+      id: "user_123",
+      fullName: "John Doe",
+      primaryEmailAddress: { emailAddress: "john@example.com" },
+    };
+
+    mockUseUser.mockReturnValue({
+      isLoaded: true,
+      isSignedIn: true,
+      user: mockUser,
+    });
+
+    render(<AnalyticsIdentifier />);
+
+    expect(mockIdentify).not.toHaveBeenCalled();
+  });
+
   it("calls reset when user signs out", () => {
     const mockUser = {
       id: "user_123",
       fullName: "John Doe",
-      emailAddresses: [{ emailAddress: "john@example.com" }],
+      primaryEmailAddress: { emailAddress: "john@example.com" },
     };
 
     mockUseUser.mockReturnValue({
@@ -149,7 +176,7 @@ describe("AnalyticsIdentifier", () => {
     const mockUser = {
       id: "user_123",
       fullName: "John Doe",
-      emailAddresses: [{ emailAddress: "john@example.com" }],
+      primaryEmailAddress: { emailAddress: "john@example.com" },
     };
 
     mockUseUser.mockReturnValue({
@@ -168,6 +195,30 @@ describe("AnalyticsIdentifier", () => {
     });
 
     // Should not call identify again
+    expect(mockIdentify).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not re-identify when component is remounted", () => {
+    const mockUser = {
+      id: "user_123",
+      fullName: "John Doe",
+      primaryEmailAddress: { emailAddress: "john@example.com" },
+    };
+
+    mockUseUser.mockReturnValue({
+      isLoaded: true,
+      isSignedIn: true,
+      user: mockUser,
+    });
+
+    const { unmount } = render(<AnalyticsIdentifier />);
+    expect(mockIdentify).toHaveBeenCalledTimes(1);
+
+    // Unmount and remount (simulating navigation)
+    unmount();
+    render(<AnalyticsIdentifier />);
+
+    // Should not call identify again due to module-level state
     expect(mockIdentify).toHaveBeenCalledTimes(1);
   });
 
