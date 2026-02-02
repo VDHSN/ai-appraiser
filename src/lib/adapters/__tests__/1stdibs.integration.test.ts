@@ -3,14 +3,16 @@
  * These tests hit the real API and verify our adapter correctly maps responses.
  *
  * Run with: pnpm test -- --testNamePattern="integration"
- * Skip in CI by setting: SKIP_INTEGRATION_TESTS=true
+ * Automatically skipped in CI environments.
+ * Can also skip manually by setting: SKIP_INTEGRATION_TESTS=true
  */
 
 import { describe, it, expect, beforeAll } from "vitest";
 import { FirstDibsAdapter } from "../1stdibs";
 import type { SearchResult, UnifiedItem } from "../types";
 
-const SKIP_INTEGRATION = process.env.SKIP_INTEGRATION_TESTS === "true";
+const SKIP_INTEGRATION =
+  process.env.SKIP_INTEGRATION_TESTS === "true" || process.env.CI === "true";
 
 // Use a common search term likely to have results
 const TEST_SEARCH_TERM = "art deco lamp";
