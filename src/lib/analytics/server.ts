@@ -6,8 +6,16 @@
 import { PostHog } from "posthog-node";
 import type { ServerAnalytics, ServerAnalyticsEvents } from "./types";
 
+/**
+ * Known feature flags used in the application.
+ * Add new flags here to enable type-safe access.
+ */
+export type FeatureFlagKey = "adapter-1stdibs";
+
 class PostHogServerAnalytics implements ServerAnalytics {
   private client: PostHog;
+  private featureFlagCache: Map<string, Record<string, boolean | string>> =
+    new Map();
 
   constructor(apiKey: string, options?: { host?: string }) {
     this.client = new PostHog(apiKey, {
@@ -15,6 +23,60 @@ class PostHogServerAnalytics implements ServerAnalytics {
       flushAt: 1, // Flush immediately for real-time tracking
       flushInterval: 0,
     });
+  }
+
+  /**
+   * Check if a feature flag is enabled for a user.
+   * Results are cached per-request to minimize API calls.
+   */
+  async isFeatureEnabled(
+    flagKey: FeatureFlagKey,
+    distinctId: string,
+    defaultValue: boolean = false,
+  ): Promise<boolean> {
+    try {
+      const result = await this.client.isFeatureEnabled(flagKey, distinctId);
+      return result ?? defaultValue;
+    } catch (error) {
+      console.warn(`Feature flag check failed for ${flagKey}:`, error);
+      return defaultValue;
+    }
+  }
+
+  /**
+   * Get all feature flags for a user.
+   * Results are cached to minimize API calls.
+   */
+  async getAllFeatureFlags(
+    distinctId: string,
+  ): Promise<Record<string, boolean | string>> {
+    // Check cache first
+    const cached = this.featureFlagCache.get(distinctId);
+    if (cached) {
+      return cached;
+    }
+
+    try {
+      const flags = await this.client.getAllFlags(distinctId);
+      const result = flags ?? {};
+      this.featureFlagCache.set(distinctId, result);
+      return result;
+    } catch (error) {
+      console.warn(`Failed to fetch feature flags:`, error);
+      return {};
+    }
+  }
+
+  /**
+   * Clear the feature flag cache for a user.
+   * Call this when you need fresh flag values.
+   */
+  clearFlagCache(distinctId?: string): void {
+    if (distinctId) {
+      this.featureFlagCache.delete(distinctId);
+    } else {
+      this.featureFlagCache.clear();
+    }
   }
 
   track<E extends keyof ServerAnalyticsEvents>(
@@ -29,10 +91,16 @@ class PostHogServerAnalytics implements ServerAnalytics {
         ? properties.user_id
         : "anonymous-server");
 
+    // Get cached feature flags for this user to include in event
+    const featureFlags = this.featureFlagCache.get(resolvedDistinctId) ?? {};
+
     this.client.capture({
       distinctId: resolvedDistinctId,
       event,
-      properties,
+      properties: {
+        ...properties,
+        $feature_flags: featureFlags,
+      },
     });
   }
 
@@ -53,7 +121,16 @@ class PostHogServerAnalytics implements ServerAnalytics {
   }
 }
 
-export const serverAnalytics: ServerAnalytics = new PostHogServerAnalytics(
-  process.env.NEXT_PUBLIC_POSTHOG_KEY ?? "",
-  { host: process.env.NEXT_PUBLIC_POSTHOG_HOST },
-);
+export const serverAnalytics: ServerAnalytics & {
+  isFeatureEnabled: (
+    flagKey: FeatureFlagKey,
+    distinctId: string,
+    defaultValue?: boolean,
+  ) => Promise<boolean>;
+  getAllFeatureFlags: (
+    distinctId: string,
+  ) => Promise<Record<string, boolean | string>>;
+  clearFlagCache: (distinctId?: string) => void;
+} = new PostHogServerAnalytics(process.env.NEXT_PUBLIC_POSTHOG_KEY ?? "", {
+  host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+});
