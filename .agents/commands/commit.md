@@ -14,5 +14,5 @@ By default, commit everything in separate logical commits. - Review all untracke
 
 - Always check what branch we're on first
   - If on main, use the AskUserQuestion tool if the user wants to switch to a different branch
-- Always do the commit command with a timeout of 10 seconds in case of a blocking verify check or signing.
+- Always do the commit command with a timeout of 30 seconds in case of a blocking verify check or signing.
   - If asked, create a PR using the github CLI tool.
