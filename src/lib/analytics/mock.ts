@@ -79,6 +79,7 @@ export class MockServerAnalytics implements ServerAnalytics {
     distinctId?: string;
   }> = [];
   public exceptions: Error[] = [];
+  public featureFlags: Record<string, Record<string, boolean | string>> = {};
 
   track<E extends keyof ServerAnalyticsEvents>(
     event: E,
@@ -94,10 +95,50 @@ export class MockServerAnalytics implements ServerAnalytics {
 
   async shutdown() {}
 
+  // Feature flag methods
+  async isFeatureEnabled(
+    flagKey: string,
+    distinctId: string,
+    defaultValue: boolean = false,
+  ): Promise<boolean> {
+    const userFlags = this.featureFlags[distinctId];
+    if (userFlags && flagKey in userFlags) {
+      return userFlags[flagKey] === true;
+    }
+    return defaultValue;
+  }
+
+  async getAllFeatureFlags(
+    distinctId: string,
+  ): Promise<Record<string, boolean | string>> {
+    return this.featureFlags[distinctId] ?? {};
+  }
+
+  clearFlagCache(_distinctId?: string): void {
+    // No-op for mock
+  }
+
+  // Test helpers for feature flags
+  setFeatureFlag(
+    distinctId: string,
+    flagKey: string,
+    value: boolean | string,
+  ): void {
+    if (!this.featureFlags[distinctId]) {
+      this.featureFlags[distinctId] = {};
+    }
+    this.featureFlags[distinctId][flagKey] = value;
+  }
+
+  clearFeatureFlags(): void {
+    this.featureFlags = {};
+  }
+
   // Test helpers
   clear() {
     this.events = [];
     this.exceptions = [];
+    this.featureFlags = {};
   }
 
   findEvent<E extends keyof ServerAnalyticsEvents>(event: E) {

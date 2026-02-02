@@ -21,6 +21,56 @@ export interface ToolContext {
 }
 
 /**
+ * Platforms that require feature flags to be enabled.
+ * Map of platform name to feature flag key.
+ */
+const FEATURE_FLAGGED_PLATFORMS: Record<string, string> = {
+  "1stdibs": "adapter-1stdibs",
+  liveauctioneers: "adapter-liveauctioneers",
+};
+
+/**
+ * Get list of enabled platforms for a user.
+ * Filters out platforms whose feature flags are disabled.
+ */
+async function getEnabledPlatforms(
+  requestedPlatforms: string[] | undefined,
+  userId?: string,
+): Promise<string[]> {
+  const allPlatforms = requestedPlatforms?.length
+    ? requestedPlatforms
+    : listPlatforms();
+
+  // Pre-fetch all feature flags for this user to populate cache
+  if (userId) {
+    await serverAnalytics.getAllFeatureFlags(userId);
+  }
+
+  // Filter platforms based on feature flags
+  const enabledPlatforms = await Promise.all(
+    allPlatforms.map(async (platform) => {
+      const flagKey = FEATURE_FLAGGED_PLATFORMS[platform];
+
+      // If no flag required, platform is always enabled
+      if (!flagKey) {
+        return platform;
+      }
+
+      // Check if feature flag is enabled for this user
+      const isEnabled = await serverAnalytics.isFeatureEnabled(
+        flagKey as "adapter-1stdibs" | "adapter-liveauctioneers",
+        userId ?? "anonymous",
+        false, // Default to disabled if flag not found
+      );
+
+      return isEnabled ? platform : null;
+    }),
+  );
+
+  return enabledPlatforms.filter((p): p is string => p !== null);
+}
+
+/**
  * Execute search across multiple adapters in parallel.
  * Returns merged results from all platforms.
  * Tracks performance metrics for each adapter.
@@ -31,7 +81,7 @@ async function searchAllAdapters<T>(
   operationType: "search" | "price_history",
   userId?: string,
 ): Promise<T[]> {
-  const targetPlatforms = platforms?.length ? platforms : listPlatforms();
+  const targetPlatforms = await getEnabledPlatforms(platforms, userId);
 
   const results = await Promise.all(
     targetPlatforms.map(async (platform) => {
@@ -188,6 +238,15 @@ function createTools(context: ToolContext = {}) {
         let errorMessage: string | undefined;
 
         try {
+          // Check if platform is enabled via feature flags
+          const enabledPlatforms = await getEnabledPlatforms(
+            [platform],
+            userId,
+          );
+          if (!enabledPlatforms.includes(platform)) {
+            throw new Error(`Platform ${platform} is not available`);
+          }
+
           const adapter = getAdapter(platform);
           return await adapter.getItem(itemId);
         } catch (error) {

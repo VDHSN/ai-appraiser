@@ -1,5 +1,5 @@
 /**
- * Integration tests for LiveAuctioneers adapter.
+ * Integration tests for 1stDibs adapter.
  * These tests hit the real API and verify our adapter correctly maps responses.
  *
  * Run with: pnpm test -- --testNamePattern="integration"
@@ -8,21 +8,22 @@
  */
 
 import { describe, it, expect, beforeAll } from "vitest";
-import { LiveAuctioneersAdapter } from "../liveauctioneers";
+import { FirstDibsAdapter } from "../1stdibs";
 import type { SearchResult, UnifiedItem } from "../types";
 
 const SKIP_INTEGRATION =
   process.env.SKIP_INTEGRATION_TESTS === "true" || process.env.CI === "true";
 
 // Use a common search term likely to have results
-const TEST_SEARCH_TERM = "antique lamp";
+const TEST_SEARCH_TERM = "art deco lamp";
 const INTEGRATION_TIMEOUT = 30000;
 
-describe.skipIf(SKIP_INTEGRATION)("LiveAuctioneers Integration", () => {
-  let adapter: LiveAuctioneersAdapter;
+describe.skipIf(SKIP_INTEGRATION)("1stDibs Integration", () => {
+  let adapter: FirstDibsAdapter;
 
   beforeAll(() => {
-    adapter = new LiveAuctioneersAdapter();
+    // Use lower rate limit for integration tests to be respectful
+    adapter = new FirstDibsAdapter({ requestsPerSecond: 0.5 });
   });
 
   describe("search", () => {
@@ -46,27 +47,15 @@ describe.skipIf(SKIP_INTEGRATION)("LiveAuctioneers Integration", () => {
     );
 
     it(
-      "respects pagination parameters",
+      "respects pageSize parameter",
       async () => {
-        const page1 = await adapter.search({
+        const results = await adapter.search({
           keywords: TEST_SEARCH_TERM,
-          page: 1,
           pageSize: 5,
         });
 
-        const page2 = await adapter.search({
-          keywords: TEST_SEARCH_TERM,
-          page: 2,
-          pageSize: 5,
-        });
-
-        expect(page1.length).toBeLessThanOrEqual(5);
-        expect(page2.length).toBeLessThanOrEqual(5);
-
-        // Results should be different between pages
-        if (page1.length > 0 && page2.length > 0) {
-          expect(page1[0].itemId).not.toBe(page2[0].itemId);
-        }
+        expect(results.length).toBeLessThanOrEqual(5);
+        expect(results.length).toBeGreaterThan(0);
       },
       INTEGRATION_TIMEOUT,
     );
@@ -76,11 +65,10 @@ describe.skipIf(SKIP_INTEGRATION)("LiveAuctioneers Integration", () => {
       async () => {
         const results = await adapter.search({
           keywords: TEST_SEARCH_TERM,
-          priceRange: { min: 100, max: 500 },
+          priceRange: { min: 1000, max: 10000 },
         });
 
-        // If results exist, prices should be in range
-        // Note: currentPrice might be starting bid, not always in exact range
+        // If results exist, verify they're returned
         expect(Array.isArray(results)).toBe(true);
       },
       INTEGRATION_TIMEOUT,
@@ -98,51 +86,17 @@ describe.skipIf(SKIP_INTEGRATION)("LiveAuctioneers Integration", () => {
       },
       INTEGRATION_TIMEOUT,
     );
-  });
-
-  describe("getPriceHistory", () => {
-    it(
-      "returns sold items with price data",
-      async () => {
-        const results = await adapter.getPriceHistory({
-          keywords: TEST_SEARCH_TERM,
-        });
-
-        expect(results.length).toBeGreaterThan(0);
-
-        const item = results[0];
-        assertSearchResultFields(item);
-
-        // Price history should have sold data
-        expect(item.status).toMatch(/^(sold|passed|done)$/);
-
-        // At least some items should have hammer prices
-        const withHammerPrice = results.filter(
-          (r) => r.soldPrice !== undefined,
-        );
-        expect(withHammerPrice.length).toBeGreaterThan(0);
-
-        const soldItem = withHammerPrice[0];
-        expect(typeof soldItem.soldPrice).toBe("number");
-        expect(soldItem.soldPrice).toBeGreaterThanOrEqual(0);
-      },
-      INTEGRATION_TIMEOUT,
-    );
 
     it(
-      "returns sold dates for completed auctions",
+      "all results have status online (buy-now marketplace)",
       async () => {
-        const results = await adapter.getPriceHistory({
+        const results = await adapter.search({
           keywords: TEST_SEARCH_TERM,
-          pageSize: 50,
+          pageSize: 10,
         });
 
-        const withSoldDate = results.filter((r) => r.soldDate !== undefined);
-
-        if (withSoldDate.length > 0) {
-          const item = withSoldDate[0];
-          expect(item.soldDate).toBeInstanceOf(Date);
-          expect(item.soldDate!.getTime()).toBeLessThan(Date.now());
+        for (const result of results) {
+          expect(result.status).toBe("online");
         }
       },
       INTEGRATION_TIMEOUT,
@@ -205,7 +159,7 @@ describe.skipIf(SKIP_INTEGRATION)("LiveAuctioneers Integration", () => {
     );
 
     it(
-      "includes category information from facets",
+      "includes category information",
       async () => {
         expect(testItemId).toBeDefined();
 
@@ -219,33 +173,29 @@ describe.skipIf(SKIP_INTEGRATION)("LiveAuctioneers Integration", () => {
     );
 
     it(
-      "may include similar items",
+      "has buy-now auction type",
       async () => {
         expect(testItemId).toBeDefined();
 
         const item = await adapter.getItem(testItemId);
 
-        // Similar items are optional but should be an array if present
-        if (item.similarItems !== undefined) {
-          expect(Array.isArray(item.similarItems)).toBe(true);
-          if (item.similarItems.length > 0) {
-            assertSearchResultFields(item.similarItems[0]);
-          }
-        }
+        expect(item.auctionType).toBe("buy-now");
       },
       INTEGRATION_TIMEOUT,
     );
+  });
 
+  describe("getPriceHistory", () => {
     it(
-      "returns description from item-detail API",
+      "returns empty array (not publicly available)",
       async () => {
-        // Regression test: item 223183805 has a known description
-        // This catches API response structure changes
-        const item = await adapter.getItem("223183805");
+        const results = await adapter.getPriceHistory({
+          keywords: TEST_SEARCH_TERM,
+        });
 
-        expect(item.description).toBeDefined();
-        expect(item.description.length).toBeGreaterThan(0);
-        expect(item.description).toContain("Wilkinson");
+        // 1stDibs doesn't expose sold item history publicly
+        expect(Array.isArray(results)).toBe(true);
+        expect(results.length).toBe(0);
       },
       INTEGRATION_TIMEOUT,
     );
@@ -270,17 +220,14 @@ describe.skipIf(SKIP_INTEGRATION)("LiveAuctioneers Integration", () => {
           expect(typeof result.imageUrl).toBe("string");
           expect(typeof result.url).toBe("string");
 
-          // URL should be valid LiveAuctioneers URL
-          expect(result.url).toContain("liveauctioneers.com/item/");
-          expect(result.platform).toBe("liveauctioneers");
+          // URL should be valid 1stDibs URL
+          expect(result.url).toContain("1stdibs.com");
+          expect(result.platform).toBe("1stdibs");
+
+          // Status should always be online for buy-now
+          expect(result.status).toBe("online");
 
           // Optional fields - correct type if present
-          if (result.endTime !== undefined) {
-            expect(result.endTime).toBeInstanceOf(Date);
-          }
-          if (result.bidCount !== undefined) {
-            expect(typeof result.bidCount).toBe("number");
-          }
           if (result.auctionHouse !== undefined) {
             expect(typeof result.auctionHouse).toBe("string");
           }
@@ -312,25 +259,30 @@ describe.skipIf(SKIP_INTEGRATION)("LiveAuctioneers Integration", () => {
           expect(Array.isArray(item.category)).toBe(true);
           expect(typeof item.currentPrice).toBe("number");
           expect(typeof item.currency).toBe("string");
-          expect(["timed", "live", "buy-now"]).toContain(item.auctionType);
+          expect(item.auctionType).toBe("buy-now");
 
           // Seller is required
           expect(item.seller).toBeDefined();
           expect(typeof item.seller.name).toBe("string");
 
           // Optional fields - correct type if present
-          if (item.estimateRange !== undefined) {
-            expect(typeof item.estimateRange.low).toBe("number");
-            expect(typeof item.estimateRange.high).toBe("number");
+          if (item.buyNowPrice !== undefined) {
+            expect(typeof item.buyNowPrice).toBe("number");
           }
-          if (item.startTime !== undefined) {
-            expect(item.startTime).toBeInstanceOf(Date);
+          if (item.seller.rating !== undefined) {
+            expect(typeof item.seller.rating).toBe("number");
           }
-          if (item.endTime !== undefined) {
-            expect(item.endTime).toBeInstanceOf(Date);
+          if (item.seller.location !== undefined) {
+            expect(typeof item.seller.location).toBe("string");
           }
-          if (item.bidCount !== undefined) {
-            expect(typeof item.bidCount).toBe("number");
+          if (item.condition !== undefined) {
+            expect(typeof item.condition).toBe("string");
+          }
+          if (item.dimensions !== undefined) {
+            expect(typeof item.dimensions).toBe("string");
+          }
+          if (item.materials !== undefined) {
+            expect(Array.isArray(item.materials)).toBe(true);
           }
         }
       },
@@ -343,7 +295,7 @@ describe.skipIf(SKIP_INTEGRATION)("LiveAuctioneers Integration", () => {
 
 function assertSearchResultFields(item: SearchResult): void {
   // Required fields must exist and have correct types
-  expect(item.platform).toBe("liveauctioneers");
+  expect(item.platform).toBe("1stdibs");
   expect(typeof item.itemId).toBe("string");
   expect(item.itemId.length).toBeGreaterThan(0);
 
@@ -363,16 +315,18 @@ function assertSearchResultFields(item: SearchResult): void {
   }
 
   expect(typeof item.url).toBe("string");
-  expect(item.url).toContain("liveauctioneers.com/item/");
-  expect(item.url).toContain(item.itemId);
+  expect(item.url).toContain("1stdibs.com");
+
+  // 1stDibs is a buy-now marketplace, status should always be online
+  expect(item.status).toBe("online");
 }
 
 function assertUnifiedItemFields(item: UnifiedItem, expectedId: string): void {
   // Identity fields
-  expect(item.id).toBe(`la-${expectedId}`);
+  expect(item.id).toBe(`fd-${expectedId}`);
   expect(item.platformItemId).toBe(expectedId);
-  expect(item.platform).toBe("liveauctioneers");
-  expect(item.url).toContain(expectedId);
+  expect(item.platform).toBe("1stdibs");
+  expect(item.url).toContain("1stdibs.com");
 
   // Core details
   expect(typeof item.title).toBe("string");
@@ -385,8 +339,8 @@ function assertUnifiedItemFields(item: UnifiedItem, expectedId: string): void {
   expect(item.currentPrice).toBeGreaterThanOrEqual(0);
   expect(typeof item.currency).toBe("string");
 
-  // Auction type
-  expect(["timed", "live", "buy-now"]).toContain(item.auctionType);
+  // Auction type - 1stDibs is always buy-now
+  expect(item.auctionType).toBe("buy-now");
 
   // Seller
   expect(item.seller).toBeDefined();

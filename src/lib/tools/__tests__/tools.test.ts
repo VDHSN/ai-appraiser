@@ -34,6 +34,11 @@ const mockLiveAuctioneersAdapter = {
 beforeEach(() => {
   vi.clearAllMocks();
   (serverAnalytics as MockServerAnalytics).clear();
+  // Enable liveauctioneers feature flag for all test users
+  const mockAnalytics = serverAnalytics as MockServerAnalytics;
+  mockAnalytics.setFeatureFlag("anonymous", "adapter-liveauctioneers", true);
+  mockAnalytics.setFeatureFlag("user-123", "adapter-liveauctioneers", true);
+  mockAnalytics.setFeatureFlag("user-456", "adapter-liveauctioneers", true);
   vi.mocked(getAdapter).mockImplementation((platform: string) => {
     if (platform === "liveauctioneers") return mockLiveAuctioneersAdapter;
     throw new Error(`Unknown platform: ${platform}`);

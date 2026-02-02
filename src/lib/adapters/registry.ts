@@ -5,9 +5,11 @@
 
 import { PlatformAdapter } from "./types";
 import { LiveAuctioneersAdapter } from "./liveauctioneers";
+import { FirstDibsAdapter } from "./1stdibs";
 
 const adapters: Record<string, PlatformAdapter> = {
   liveauctioneers: new LiveAuctioneersAdapter(),
+  "1stdibs": new FirstDibsAdapter(),
 };
 
 /**
