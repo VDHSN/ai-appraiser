@@ -26,6 +26,7 @@ export interface ToolContext {
  */
 const FEATURE_FLAGGED_PLATFORMS: Record<string, string> = {
   "1stdibs": "adapter-1stdibs",
+  liveauctioneers: "adapter-liveauctioneers",
 };
 
 /**
@@ -57,7 +58,7 @@ async function getEnabledPlatforms(
 
       // Check if feature flag is enabled for this user
       const isEnabled = await serverAnalytics.isFeatureEnabled(
-        flagKey as "adapter-1stdibs",
+        flagKey as "adapter-1stdibs" | "adapter-liveauctioneers",
         userId ?? "anonymous",
         false, // Default to disabled if flag not found
       );
