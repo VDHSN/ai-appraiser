@@ -8,6 +8,7 @@
 
 import { useEffect, useRef, useState, use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import type { Route } from "next";
 import { analytics } from "@/lib/analytics";
 import { validateSession } from "@/lib/chat-history";
 import { ChatView } from "@/components/home";
@@ -89,7 +90,7 @@ export default function SessionPage({ params }: SessionPageProps) {
       // Clear the initial message from URL to prevent re-send on refresh
       // Use setTimeout to ensure ChatView has rendered and captured the initial message
       setTimeout(() => {
-        router.replace(`/${sessionId}`, { scroll: false });
+        router.replace(`/${sessionId}` as Route, { scroll: false });
       }, 0);
     } else if (sessionResult.type === "not_found") {
       hasHandledRef.current = true;
