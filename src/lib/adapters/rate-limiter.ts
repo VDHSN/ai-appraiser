@@ -3,11 +3,15 @@
  * Ensures we don't exceed platform rate limits.
  */
 
+import type { ILogger } from "../logging/types";
+
 export interface RateLimiterConfig {
   /** Maximum requests per second */
   requestsPerSecond: number;
   /** Maximum burst size (bucket capacity) */
   maxBurst?: number;
+  /** Optional logger for debugging rate limiting behavior */
+  log?: ILogger;
 }
 
 export class RateLimiter {
@@ -15,12 +19,14 @@ export class RateLimiter {
   private lastRefill: number;
   private readonly requestsPerSecond: number;
   private readonly maxBurst: number;
+  private readonly log?: ILogger;
 
   constructor(config: RateLimiterConfig) {
     this.requestsPerSecond = config.requestsPerSecond;
     this.maxBurst = config.maxBurst ?? config.requestsPerSecond;
     this.tokens = this.maxBurst;
     this.lastRefill = Date.now();
+    this.log = config.log;
   }
 
   /**
@@ -61,8 +67,10 @@ export class RateLimiter {
     this.refill();
     if (this.tokens >= 1) {
       this.tokens -= 1;
+      this.log?.debug("Token consumed", { remainingTokens: this.tokens });
       return true;
     }
+    this.log?.debug("Rate limited", { tokens: this.tokens });
     return false;
   }
 
@@ -72,6 +80,10 @@ export class RateLimiter {
   async acquire(): Promise<void> {
     const waitTime = this.getWaitTime();
     if (waitTime > 0) {
+      this.log?.debug("Waiting for rate limit", {
+        waitTimeMs: waitTime,
+        tokens: this.tokens,
+      });
       await sleep(waitTime);
     }
     this.tryConsume();

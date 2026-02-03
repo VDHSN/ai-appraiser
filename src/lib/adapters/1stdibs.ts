@@ -11,6 +11,8 @@ import {
   UnifiedItem,
 } from "./types";
 import { RateLimiter } from "./rate-limiter";
+import type { ILogger } from "../logging/types";
+import { serverLoggerFactory } from "../logging/server";
 
 // --- API Configuration ---
 
@@ -477,20 +479,32 @@ export interface FirstDibsConfig {
   rateLimiter?: RateLimiter;
   /** Requests per second (only used if rateLimiter not provided). Default: 2 */
   requestsPerSecond?: number;
+  /** Optional logger for testing. If not provided, uses serverLoggerFactory. */
+  log?: ILogger;
 }
 
 export class FirstDibsAdapter implements PlatformAdapter {
   readonly platform = PLATFORM;
   private readonly fetchFn: FetchFn;
+  private readonly log: ILogger;
 
   constructor(config: FirstDibsConfig = {}) {
+    this.log =
+      config.log ??
+      serverLoggerFactory.create({
+        distinctId: "system",
+        component: "adapter:1stdibs",
+      });
+
     const baseFetch = config.fetchFn ?? fetch;
 
     // Create rate limiter (use provided or create default)
+    const rateLimiterLog = this.log.child({ subcomponent: "rate-limiter" });
     const limiter =
       config.rateLimiter ??
       new RateLimiter({
         requestsPerSecond: config.requestsPerSecond ?? DEFAULT_RATE_LIMIT,
+        log: rateLimiterLog,
       });
 
     // Wrap fetch with rate limiting
@@ -501,26 +515,57 @@ export class FirstDibsAdapter implements PlatformAdapter {
   }
 
   async search(query: SearchQuery): Promise<SearchResult[]> {
+    const startTime = Date.now();
     const uriRef = buildSearchUriRef(query);
     const pageSize = query.pageSize ?? 24;
 
-    const response = await fetchGraphQL<GraphQLSearchResponse>(
-      this.fetchFn,
-      SEARCH_QUERY,
-      { uriRef, first: pageSize },
-      "1stDibs search failed",
-    );
+    this.log.info("Search started", {
+      keywords: query.keywords,
+      pageSize,
+    });
 
-    if (!response.data?.viewer?.itemSearch?.edges) {
-      return [];
+    try {
+      const response = await fetchGraphQL<GraphQLSearchResponse>(
+        this.fetchFn,
+        SEARCH_QUERY,
+        { uriRef, first: pageSize },
+        "1stDibs search failed",
+      );
+
+      if (!response.data?.viewer?.itemSearch?.edges) {
+        this.log.info("Search complete", {
+          keywords: query.keywords,
+          resultCount: 0,
+          durationMs: Date.now() - startTime,
+        });
+        return [];
+      }
+
+      const results = response.data.viewer.itemSearch.edges.map((edge) =>
+        mapGraphQLItemToSearchResult(edge.node.item),
+      );
+
+      this.log.info("Search complete", {
+        keywords: query.keywords,
+        resultCount: results.length,
+        durationMs: Date.now() - startTime,
+      });
+
+      return results;
+    } catch (error) {
+      this.log.error("Search failed", {
+        keywords: query.keywords,
+        error: error instanceof Error ? error.message : String(error),
+        durationMs: Date.now() - startTime,
+      });
+      throw error;
     }
-
-    return response.data.viewer.itemSearch.edges.map((edge) =>
-      mapGraphQLItemToSearchResult(edge.node.item),
-    );
   }
 
   async getItem(itemId: string): Promise<UnifiedItem> {
+    const startTime = Date.now();
+    this.log.debug("getItem started", { itemId });
+
     // Try GraphQL first
     const globalId = encodeItemGlobalId(itemId);
 
@@ -533,10 +578,18 @@ export class FirstDibsAdapter implements PlatformAdapter {
       );
 
       if (response.data?.node) {
+        this.log.debug("getItem complete", {
+          itemId,
+          source: "graphql",
+          durationMs: Date.now() - startTime,
+        });
         return mapGraphQLItemDetailToUnifiedItem(response.data.node);
       }
     } catch {
       // Fall through to HTML/JSON-LD fallback
+      this.log.debug("GraphQL fetch failed, trying JSON-LD fallback", {
+        itemId,
+      });
     }
 
     // Fallback: try HTML with JSON-LD parsing
@@ -550,9 +603,19 @@ export class FirstDibsAdapter implements PlatformAdapter {
     const product = extractItemDetail(jsonLdData);
 
     if (!product) {
+      this.log.error("getItem failed", {
+        itemId,
+        error: "Item not found in GraphQL or JSON-LD",
+        durationMs: Date.now() - startTime,
+      });
       throw new Error(`1stDibs item not found: ${itemId}`);
     }
 
+    this.log.debug("getItem complete", {
+      itemId,
+      source: "json-ld",
+      durationMs: Date.now() - startTime,
+    });
     return mapProductToUnifiedItem(product);
   }
 

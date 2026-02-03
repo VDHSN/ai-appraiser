@@ -28,8 +28,9 @@ const RequestSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  // Extract distinct ID from header for server-side logging
+  // Extract distinct ID and origin from headers for server-side logging
   const distinctId = req.headers.get("X-PostHog-DistinctId") ?? "anonymous";
+  const origin = req.headers.get("origin") ?? undefined;
 
   const body = await req.json();
   const parsed = RequestSchema.safeParse(body);
@@ -62,6 +63,8 @@ export async function POST(req: Request) {
     agentId,
     isRestored,
     restoredSessionId,
+    origin,
+    component: "chat",
   });
 
   // Track user message
@@ -86,8 +89,17 @@ export async function POST(req: Request) {
   }
 
   try {
+    const useFlashModel = await serverAnalytics.isFeatureEnabled(
+      "agent-gemini-flash",
+      distinctId,
+      false,
+    );
+    const modelId = useFlashModel
+      ? "gemini-3-flash-preview"
+      : (agent.model ?? "gemini-2.5-pro-preview-05-06");
+
     const result = streamText({
-      model: getTracedModel(agent.model ?? "gemini-3-pro-preview"),
+      model: getTracedModel(modelId),
       system: agent.systemPrompt,
       messages: await convertToModelMessages(messages as UIMessage[]),
       tools,
@@ -116,7 +128,12 @@ export async function POST(req: Request) {
       onError: ({ error }) => {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
+        const errorObj =
+          error instanceof Error ? error : new Error(errorMessage);
+
         log.error("Stream error", { errorMessage });
+
+        // Track as event for analytics dashboards
         serverAnalytics.track(
           "chat:ai_error",
           {
@@ -129,14 +146,26 @@ export async function POST(req: Request) {
           },
           userId ?? undefined,
         );
+
+        // Capture as exception for PostHog Error Tracking
+        serverAnalytics.captureException(errorObj, {
+          agent_id: agentId,
+          error_type: "stream_error",
+          session_id: sessionId,
+          user_id: userId,
+          distinct_id: distinctId,
+        });
       },
     });
 
     return result.toUIMessageStreamResponse();
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorObj = error instanceof Error ? error : new Error(errorMessage);
+
     log.error("Request error", { errorMessage });
 
+    // Track as event for analytics dashboards
     serverAnalytics.track(
       "chat:ai_error",
       {
@@ -149,6 +178,14 @@ export async function POST(req: Request) {
       },
       userId ?? undefined,
     );
+
+    // Capture as exception for PostHog Error Tracking
+    serverAnalytics.captureException(errorObj, {
+      agent_id: agentId,
+      session_id: sessionId,
+      user_id: userId,
+      distinct_id: distinctId,
+    });
 
     return new Response(
       JSON.stringify({ type: "error", errorText: errorMessage }),

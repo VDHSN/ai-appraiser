@@ -5,12 +5,16 @@
 
 import { PostHog } from "posthog-node";
 import type { ServerAnalytics, ServerAnalyticsEvents } from "./types";
+import { serverLoggerFactory } from "@/lib/logging/server";
 
 /**
  * Known feature flags used in the application.
  * Add new flags here to enable type-safe access.
  */
-export type FeatureFlagKey = "adapter-1stdibs" | "adapter-liveauctioneers";
+export type FeatureFlagKey =
+  | "adapter-1stdibs"
+  | "adapter-liveauctioneers"
+  | "agent-gemini-flash";
 
 class PostHogServerAnalytics implements ServerAnalytics {
   private client: PostHog;
@@ -94,6 +98,13 @@ class PostHogServerAnalytics implements ServerAnalytics {
     // Get cached feature flags for this user to include in event
     const featureFlags = this.featureFlagCache.get(resolvedDistinctId) ?? {};
 
+    // Emit structured log for analytics event
+    const log = serverLoggerFactory.create({
+      distinctId: resolvedDistinctId,
+      component: "analytics",
+    });
+    log.info(`Analytics: ${event}`, properties as Record<string, unknown>);
+
     this.client.capture({
       distinctId: resolvedDistinctId,
       event,
@@ -104,13 +115,18 @@ class PostHogServerAnalytics implements ServerAnalytics {
     });
   }
 
-  captureException(error: Error, context?: Record<string, unknown>) {
+  captureException(
+    error: Error,
+    context?: Record<string, unknown> & { distinct_id?: string },
+  ) {
+    const distinctId = context?.distinct_id ?? "server";
     this.client.capture({
-      distinctId: "server",
+      distinctId,
       event: "$exception",
       properties: {
         $exception_message: error.message,
         $exception_stack: error.stack,
+        $exception_type: error.name,
         ...context,
       },
     });

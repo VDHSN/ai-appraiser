@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock dependencies before importing the route
 vi.mock("@/lib/analytics/server", () => ({
-  serverAnalytics: { track: vi.fn() },
+  serverAnalytics: {
+    track: vi.fn(),
+    isFeatureEnabled: vi.fn(() => Promise.resolve(false)),
+  },
 }));
 
 vi.mock("@clerk/nextjs/server", () => ({
@@ -55,10 +58,13 @@ import { POST } from "../route";
 import { serverAnalytics } from "@/lib/analytics/server";
 import { auth } from "@clerk/nextjs/server";
 import { getToolSubsetWithContext } from "@/lib/tools";
+import { getTracedModel } from "@/lib/analytics/llm";
 
 const mockTrack = vi.mocked(serverAnalytics.track);
+const mockIsFeatureEnabled = vi.mocked(serverAnalytics.isFeatureEnabled);
 const mockAuth = vi.mocked(auth);
 const mockGetToolSubsetWithContext = vi.mocked(getToolSubsetWithContext);
+const mockGetTracedModel = vi.mocked(getTracedModel);
 
 describe("Chat API Route", () => {
   beforeEach(() => {
@@ -266,6 +272,71 @@ describe("Chat API Route", () => {
       const response = await POST(request);
 
       expect(response.status).not.toBe(400);
+    });
+  });
+
+  describe("agent-gemini-flash feature flag", () => {
+    it("uses default model when flag is disabled", async () => {
+      mockIsFeatureEnabled.mockResolvedValueOnce(false);
+
+      const request = new Request("http://localhost/api/chat", {
+        method: "POST",
+        headers: { "X-PostHog-DistinctId": "test-user" },
+        body: JSON.stringify({
+          messages: [],
+          agentId: "curator",
+        }),
+      });
+
+      await POST(request);
+
+      expect(mockIsFeatureEnabled).toHaveBeenCalledWith(
+        "agent-gemini-flash",
+        "test-user",
+        false,
+      );
+      expect(mockGetTracedModel).toHaveBeenCalledWith("test-model");
+    });
+
+    it("uses gemini-3-flash-preview when flag is enabled", async () => {
+      mockIsFeatureEnabled.mockResolvedValueOnce(true);
+
+      const request = new Request("http://localhost/api/chat", {
+        method: "POST",
+        headers: { "X-PostHog-DistinctId": "flash-user" },
+        body: JSON.stringify({
+          messages: [],
+          agentId: "curator",
+        }),
+      });
+
+      await POST(request);
+
+      expect(mockIsFeatureEnabled).toHaveBeenCalledWith(
+        "agent-gemini-flash",
+        "flash-user",
+        false,
+      );
+      expect(mockGetTracedModel).toHaveBeenCalledWith("gemini-3-flash-preview");
+    });
+
+    it("uses anonymous distinctId when header is missing", async () => {
+      mockIsFeatureEnabled.mockResolvedValueOnce(false);
+
+      const request = new Request("http://localhost/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          messages: [],
+        }),
+      });
+
+      await POST(request);
+
+      expect(mockIsFeatureEnabled).toHaveBeenCalledWith(
+        "agent-gemini-flash",
+        "anonymous",
+        false,
+      );
     });
   });
 });

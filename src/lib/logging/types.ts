@@ -53,6 +53,10 @@ export interface ServerLoggerContext {
   agentId?: string | null;
   isRestored?: boolean;
   restoredSessionId?: string | null;
+  /** Request origin header for host identification */
+  origin?: string;
+  /** Component identifier for log categorization */
+  component?: string;
 }
 
 /** Factory for request-scoped loggers (server-side) */
