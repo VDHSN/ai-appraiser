@@ -33,3 +33,9 @@ export {
   mockServerLoggerFactory,
   type LogEntry as MockLogEntry,
 } from "./mock";
+
+// Edge logger for middleware
+export { createEdgeLogger, type EdgeLoggerConfig } from "./edge/logger";
+
+// Error logging utilities
+export { logAndThrow, logError, withErrorLogging } from "./errors";

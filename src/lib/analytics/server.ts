@@ -5,6 +5,7 @@
 
 import { PostHog } from "posthog-node";
 import type { ServerAnalytics, ServerAnalyticsEvents } from "./types";
+import { serverLoggerFactory } from "@/lib/logging/server";
 
 /**
  * Known feature flags used in the application.
@@ -96,6 +97,13 @@ class PostHogServerAnalytics implements ServerAnalytics {
 
     // Get cached feature flags for this user to include in event
     const featureFlags = this.featureFlagCache.get(resolvedDistinctId) ?? {};
+
+    // Emit structured log for analytics event
+    const log = serverLoggerFactory.create({
+      distinctId: resolvedDistinctId,
+      component: "analytics",
+    });
+    log.info(`Analytics: ${event}`, properties as Record<string, unknown>);
 
     this.client.capture({
       distinctId: resolvedDistinctId,

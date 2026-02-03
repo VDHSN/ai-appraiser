@@ -28,8 +28,9 @@ const RequestSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  // Extract distinct ID from header for server-side logging
+  // Extract distinct ID and origin from headers for server-side logging
   const distinctId = req.headers.get("X-PostHog-DistinctId") ?? "anonymous";
+  const origin = req.headers.get("origin") ?? undefined;
 
   const body = await req.json();
   const parsed = RequestSchema.safeParse(body);
@@ -62,6 +63,8 @@ export async function POST(req: Request) {
     agentId,
     isRestored,
     restoredSessionId,
+    origin,
+    component: "chat",
   });
 
   // Track user message

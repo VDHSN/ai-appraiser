@@ -9,6 +9,8 @@ import {
   SearchResult,
   UnifiedItem,
 } from "./types";
+import type { ILogger } from "../logging/types";
+import { serverLoggerFactory } from "../logging/server";
 
 // API endpoints
 const SEARCH_URL =
@@ -435,64 +437,133 @@ const SOLD_ITEM_STATUS = ["sold", "passed", "done"] as const;
 
 export interface LiveAuctioneersConfig {
   fetchFn?: FetchFn;
+  /** Optional logger for testing. If not provided, uses serverLoggerFactory. */
+  log?: ILogger;
 }
 
 export class LiveAuctioneersAdapter implements PlatformAdapter {
   readonly platform = PLATFORM;
   private readonly fetchFn: FetchFn;
+  private readonly log: ILogger;
 
   constructor(config: LiveAuctioneersConfig = {}) {
     this.fetchFn = config.fetchFn ?? fetch;
+    this.log =
+      config.log ??
+      serverLoggerFactory.create({
+        distinctId: "system",
+        component: "adapter:liveauctioneers",
+      });
   }
 
   async search(query: SearchQuery): Promise<SearchResult[]> {
-    const params = buildSearchParams(query, [...ACTIVE_AUCTION_STATUS]);
-    const url = buildSearchUrl(params);
-    const response = await fetchJson<LASearchApiResponse>(
-      this.fetchFn,
-      url,
-      "LiveAuctioneers search failed",
-    );
-    const items = response.payload?.items ?? [];
-    return items.map((item) => mapSearchItem(item, false));
+    const startTime = Date.now();
+    this.log.info("Search started", {
+      keywords: query.keywords,
+      pageSize: query.pageSize,
+    });
+
+    try {
+      const params = buildSearchParams(query, [...ACTIVE_AUCTION_STATUS]);
+      const url = buildSearchUrl(params);
+      const response = await fetchJson<LASearchApiResponse>(
+        this.fetchFn,
+        url,
+        "LiveAuctioneers search failed",
+      );
+      const items = response.payload?.items ?? [];
+      const results = items.map((item) => mapSearchItem(item, false));
+
+      this.log.info("Search complete", {
+        keywords: query.keywords,
+        resultCount: results.length,
+        durationMs: Date.now() - startTime,
+      });
+
+      return results;
+    } catch (error) {
+      this.log.error("Search failed", {
+        keywords: query.keywords,
+        error: error instanceof Error ? error.message : String(error),
+        durationMs: Date.now() - startTime,
+      });
+      throw error;
+    }
   }
 
   async getPriceHistory(query: SearchQuery): Promise<SearchResult[]> {
-    const params = buildSearchParams(query, [...SOLD_ITEM_STATUS]);
-    const url = buildSearchUrl(params);
-    const response = await fetchJson<LASearchApiResponse>(
-      this.fetchFn,
-      url,
-      "LiveAuctioneers price history failed",
-    );
-    const items = response.payload?.items ?? [];
-    return items.map((item) => mapSearchItem(item, true));
+    const startTime = Date.now();
+    this.log.info("Price history started", { keywords: query.keywords });
+
+    try {
+      const params = buildSearchParams(query, [...SOLD_ITEM_STATUS]);
+      const url = buildSearchUrl(params);
+      const response = await fetchJson<LASearchApiResponse>(
+        this.fetchFn,
+        url,
+        "LiveAuctioneers price history failed",
+      );
+      const items = response.payload?.items ?? [];
+      const results = items.map((item) => mapSearchItem(item, true));
+
+      this.log.info("Price history complete", {
+        keywords: query.keywords,
+        resultCount: results.length,
+        durationMs: Date.now() - startTime,
+      });
+
+      return results;
+    } catch (error) {
+      this.log.error("Price history failed", {
+        keywords: query.keywords,
+        error: error instanceof Error ? error.message : String(error),
+        durationMs: Date.now() - startTime,
+      });
+      throw error;
+    }
   }
 
   async getItem(itemId: string): Promise<UnifiedItem> {
-    const [detailRaw, facetsRaw, contentResponse] = await Promise.all([
-      fetchJson<Record<string, LAItemDetail> | LAItemDetail>(
-        this.fetchFn,
-        buildItemDetailUrl(itemId),
-        "Failed to fetch item detail",
-      ),
-      fetchJson<Record<string, LAItemFacets> | LAItemFacets>(
-        this.fetchFn,
-        buildItemFacetsUrl(itemId),
-        "Failed to fetch item facets",
-      ),
-      fetchJson<LAContentResponse>(
-        this.fetchFn,
-        buildContentItemsUrl(itemId),
-        "Failed to fetch content items",
-      ),
-    ]);
+    const startTime = Date.now();
+    this.log.debug("getItem started", { itemId });
 
-    const detail = extractItemData(detailRaw, itemId);
-    const facets = extractItemData(facetsRaw, itemId);
-    const contentItem = contentResponse.payload?.items?.[0];
+    try {
+      const [detailRaw, facetsRaw, contentResponse] = await Promise.all([
+        fetchJson<Record<string, LAItemDetail> | LAItemDetail>(
+          this.fetchFn,
+          buildItemDetailUrl(itemId),
+          "Failed to fetch item detail",
+        ),
+        fetchJson<Record<string, LAItemFacets> | LAItemFacets>(
+          this.fetchFn,
+          buildItemFacetsUrl(itemId),
+          "Failed to fetch item facets",
+        ),
+        fetchJson<LAContentResponse>(
+          this.fetchFn,
+          buildContentItemsUrl(itemId),
+          "Failed to fetch content items",
+        ),
+      ]);
 
-    return buildUnifiedItem(itemId, detail, facets, contentItem);
+      const detail = extractItemData(detailRaw, itemId);
+      const facets = extractItemData(facetsRaw, itemId);
+      const contentItem = contentResponse.payload?.items?.[0];
+
+      this.log.debug("getItem complete", {
+        itemId,
+        durationMs: Date.now() - startTime,
+      });
+
+      return buildUnifiedItem(itemId, detail, facets, contentItem);
+    } catch (error) {
+      this.log.error("getItem failed", {
+        itemId,
+        error: error instanceof Error ? error.message : String(error),
+        durationMs: Date.now() - startTime,
+      });
+      throw error;
+    }
   }
 }
 
