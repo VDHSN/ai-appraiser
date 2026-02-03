@@ -92,8 +92,8 @@ export async function POST(req: Request) {
       false,
     );
     const modelId = useFlashModel
-      ? "gemini-3-flash"
-      : (agent.model ?? "gemini-3-pro-preview");
+      ? "gemini-2.0-flash"
+      : (agent.model ?? "gemini-2.5-pro-preview-05-06");
 
     const result = streamText({
       model: getTracedModel(modelId),
