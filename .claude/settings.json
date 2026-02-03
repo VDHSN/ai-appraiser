@@ -1,23 +1,29 @@
 {
   "permissions": {
+    "deny": ["Bash(npm)", "Bash(npx)", "Bash(npm:*)"],
+    "ask": ["Bash(pnpm install)"],
     "allow": [
       "Bash(pnpm view:*)",
-      "Bash(pnpm install)",
       "Bash(pnpm run typecheck:*)",
       "Bash(pnpm run lint)",
       "Bash(pnpm run format)",
       "Bash(pnpm test:*)",
       "Bash(pnpm dlx vercel logs:*)",
       "Bash(SKIP_INTEGRATION_TESTS=true pnpm test:*)",
+      "Bash(tmux:*)",
 
       "mcp__posthog__docs-search",
+      "mcp__posthog__query-run",
       "mcp__vercel-appraiser__get_deployment_build_logs",
       "mcp__vercel-appraiser__list_deployments",
 
       "WebSearch",
-      "WebFetch(domain:www.liveauctioneers.com)",
+      "WebFetch(domain:ai.google.dev)",
       "WebFetch(domain:posthog.com)",
-      "WebFetch(domain:www.proxibid.com)"
+      "WebFetch(domain:vercel.com)",
+      "WebFetch(domain:www.liveauctioneers.com)",
+      "WebFetch(domain:www.proxibid.com)",
+      "WebFetch(domain:1stdibs.com)"
     ]
   },
   "hooks": {
