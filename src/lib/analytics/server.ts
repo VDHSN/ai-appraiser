@@ -10,7 +10,10 @@ import type { ServerAnalytics, ServerAnalyticsEvents } from "./types";
  * Known feature flags used in the application.
  * Add new flags here to enable type-safe access.
  */
-export type FeatureFlagKey = "adapter-1stdibs" | "adapter-liveauctioneers";
+export type FeatureFlagKey =
+  | "adapter-1stdibs"
+  | "adapter-liveauctioneers"
+  | "agent-gemini-flash";
 
 class PostHogServerAnalytics implements ServerAnalytics {
   private client: PostHog;

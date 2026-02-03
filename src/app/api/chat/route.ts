@@ -86,8 +86,17 @@ export async function POST(req: Request) {
   }
 
   try {
+    const useFlashModel = await serverAnalytics.isFeatureEnabled(
+      "agent-gemini-flash",
+      distinctId,
+      false,
+    );
+    const modelId = useFlashModel
+      ? "gemini-3-flash"
+      : (agent.model ?? "gemini-3-pro-preview");
+
     const result = streamText({
-      model: getTracedModel(agent.model ?? "gemini-3-pro-preview"),
+      model: getTracedModel(modelId),
       system: agent.systemPrompt,
       messages: await convertToModelMessages(messages as UIMessage[]),
       tools,
