@@ -8,6 +8,7 @@
 
 import { useSyncExternalStore, useCallback, useState } from "react";
 import Link from "next/link";
+import type { Route } from "next";
 import { analytics } from "@/lib/analytics";
 import {
   getRecentSessionSummaries,
@@ -180,7 +181,7 @@ export function RecentChats() {
             onDelete={handleDelete}
           >
             <Link
-              href={`/${session.id}`}
+              href={`/${session.id}` as Route}
               onClick={() =>
                 handleLinkClick(session.id, session.preview, session.agentId)
               }

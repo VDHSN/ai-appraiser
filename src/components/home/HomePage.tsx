@@ -8,6 +8,7 @@
 
 import { Suspense } from "react";
 import { useRouter } from "next/navigation";
+import type { Route } from "next";
 import { analytics } from "@/lib/analytics";
 import { generateSessionId } from "@/lib/chat-history";
 import { UserMenu } from "@/components/auth";
@@ -45,7 +46,7 @@ export function HomePage() {
 
     // Navigate to session page with initial message
     router.push(
-      `/${sessionId}?initial=${encodeURIComponent(message)}&agent=${agent}`,
+      `/${sessionId}?initial=${encodeURIComponent(message)}&agent=${agent}` as Route,
     );
   };
 
