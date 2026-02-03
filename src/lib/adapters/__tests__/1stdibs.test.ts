@@ -2,27 +2,38 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   FirstDibsAdapter,
   buildSearchUriRef,
-  buildSearchVariables,
-  buildGraphQLRequest,
-  mapSearchNode,
-  buildUnifiedItem,
   buildItemUrl,
-  buildSellerLocation,
-  buildDimensionsString,
-  extractImageUrl,
+  extractJsonLd,
+  extractItemId,
+  extractItemIdFromServiceId,
+  extractImageFromJsonLd,
+  extractAllImagesFromJsonLd,
+  mapGraphQLItemToSearchResult,
+  mapGraphQLItemDetailToUnifiedItem,
+  mapProductToUnifiedItem,
+  extractItemDetail,
+  encodeItemGlobalId,
   PLATFORM,
   DEFAULT_RATE_LIMIT,
-  type FDSearchNode,
-  type FDSearchResponse,
-  type FDItemDetail,
-  type FDItemResponse,
+  GRAPHQL_URL,
+  type GraphQLItem,
+  type GraphQLItemDetail,
+  type GraphQLSearchResponse,
+  type GraphQLItemResponse,
+  type JsonLdProduct,
+  type JsonLdImageObject,
 } from "../1stdibs";
 import { RateLimiter } from "../rate-limiter";
 
 // --- Test Fixtures ---
 
 const createMockFetch = (
-  responses: Array<{ ok: boolean; status?: number; data?: unknown }>,
+  responses: Array<{
+    ok: boolean;
+    status?: number;
+    text?: string;
+    json?: unknown;
+  }>,
 ) => {
   let callIndex = 0;
   return vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
@@ -30,144 +41,121 @@ const createMockFetch = (
     return {
       ok: response.ok,
       status: response.status ?? (response.ok ? 200 : 500),
-      json: async () => response.data,
+      text: async () => response.text ?? "",
+      json: async () => response.json ?? {},
     } as Response;
   });
 };
 
-const mockSearchNode: FDSearchNode = {
-  serviceId: "id-M-12345",
+const mockGraphQLItem: GraphQLItem = {
+  serviceId: "f_12345",
   title: "Art Deco Bronze Table Lamp",
-  browseUrl: "/furniture/lighting/table-lamps/art-deco-bronze-lamp/id-f_12345/",
-  localizedPdpUrl:
-    "https://www.1stdibs.com/furniture/lighting/table-lamps/art-deco-bronze-lamp/id-f_12345/",
-  contemporaryTrackingData: {
-    price: 4500,
-    priceCurrency: "USD",
+  pdpURL: "/furniture/lighting/table-lamps/art-deco-bronze-lamp/id-f_12345/",
+  firstPhotoWebPath: "https://a.1stdibscdn.com/lamp-small.jpg",
+  pricing: {
+    amount: {
+      amount: 4500,
+      currency: "USD",
+    },
   },
   seller: {
-    serviceId: "dealer-123",
-    sellerProfile: {
-      company: "Luxury Antiques Gallery",
-    },
-    sellerPreferences: {
-      sellerLocation: {
-        city: "New York",
-        region: "NY",
-      },
-    },
-  },
-  photos: [
-    {
-      masterOrZoomPath: "https://a.1stdibscdn.com/art-deco-lamp-full.jpg",
-      placeholder: "https://a.1stdibscdn.com/art-deco-lamp-thumb.jpg",
-      versions: {
-        webp: {
-          path: "https://a.1stdibscdn.com/art-deco-lamp.webp",
-        },
-      },
-    },
-  ],
-  classification: {
-    categories: [{ name: "Lighting" }, { name: "Table Lamps" }],
+    id: "U2VsbGVyOjEyMzQ1",
   },
 };
 
-const mockSearchNodeMinimal: FDSearchNode = {
-  serviceId: "id-M-99999",
-};
-
-const mockItemDetail: FDItemDetail = {
-  serviceId: "id-M-12345",
+const mockGraphQLItemDetail: GraphQLItemDetail = {
+  serviceId: "f_12345",
   title: "Art Deco Bronze Table Lamp",
+  pdpURL: "/furniture/lighting/table-lamps/art-deco-bronze-lamp/id-f_12345/",
   description:
     "Exquisite 1920s Art Deco bronze table lamp with original patina.",
-  browseUrl: "/furniture/lighting/table-lamps/art-deco-bronze-lamp/id-f_12345/",
-  localizedPdpUrl:
-    "https://www.1stdibs.com/furniture/lighting/table-lamps/art-deco-bronze-lamp/id-f_12345/",
-  contemporaryTrackingData: {
-    price: 4500,
-    priceCurrency: "USD",
-    netPrice: 4050,
+  firstPhotoWebPath: "https://a.1stdibscdn.com/lamp-large.jpg",
+  photos: [
+    { webPath: "https://a.1stdibscdn.com/lamp-1.jpg" },
+    { webPath: "https://a.1stdibscdn.com/lamp-2.jpg" },
+  ],
+  pricing: {
+    amount: {
+      amount: 4500,
+      currency: "USD",
+    },
   },
   seller: {
-    serviceId: "dealer-123",
-    sellerProfile: {
-      company: "Luxury Antiques Gallery",
-      aboutUs: "Premier antiques dealer since 1985",
-    },
-    sellerPreferences: {
-      sellerLocation: {
-        city: "New York",
-        region: "NY",
-        country: "United States",
+    id: "U2VsbGVyOjEyMzQ1",
+    displayName: "Luxury Antiques Gallery",
+  },
+  categories: [{ name: "Lighting" }, { name: "Table Lamps" }],
+};
+
+const mockGraphQLSearchResponse: GraphQLSearchResponse = {
+  data: {
+    viewer: {
+      itemSearch: {
+        totalResults: 1,
+        edges: [
+          {
+            node: {
+              item: mockGraphQLItem,
+            },
+          },
+        ],
       },
     },
-    reviewsInfo: {
-      averageRating: 4.8,
-      reviewCount: 156,
-    },
   },
-  photos: [
+};
+
+const mockGraphQLItemResponse: GraphQLItemResponse = {
+  data: {
+    node: mockGraphQLItemDetail,
+  },
+};
+
+const mockJsonLdProduct: JsonLdProduct = {
+  "@type": "Product",
+  name: "Art Deco Bronze Table Lamp",
+  url: "https://www.1stdibs.com/furniture/lighting/table-lamps/art-deco-bronze-lamp/id-f_12345/",
+  description:
+    "Exquisite 1920s Art Deco bronze table lamp with original patina.",
+  image: [
     {
-      masterOrZoomPath: "https://a.1stdibscdn.com/lamp-1.jpg",
-      versions: { webp: { path: "https://a.1stdibscdn.com/lamp-1.webp" } },
+      "@type": "ImageObject",
+      contentUrl: "https://a.1stdibscdn.com/lamp-1.jpg",
+      thumbnailUrl: "https://a.1stdibscdn.com/lamp-1-thumb.jpg",
     },
     {
-      masterOrZoomPath: "https://a.1stdibscdn.com/lamp-2.jpg",
-      versions: { webp: { path: "https://a.1stdibscdn.com/lamp-2.webp" } },
+      "@type": "ImageObject",
+      contentUrl: "https://a.1stdibscdn.com/lamp-2.jpg",
     },
   ],
-  classification: {
-    categories: [
-      { name: "Lighting", urlLabel: "lighting" },
-      { name: "Table Lamps", urlLabel: "table-lamps" },
-    ],
-    creators: [{ name: "Edgar Brandt" }],
+  offers: {
+    "@type": "Offer",
+    price: 4500,
+    priceCurrency: "USD",
+    availability: "http://schema.org/InStock",
   },
-  measurement: {
-    display: {
-      value: "18 in. H x 10 in. W",
-      unit: "",
-    },
-  },
-  materials: [{ name: "Bronze" }, { name: "Glass" }],
-  condition: {
-    displayCondition: "Excellent",
-    description: "Minor wear consistent with age, original patina intact",
-  },
-  provenance: "Private collection, Paris",
-  styleDisplay: "Art Deco",
-  periodDisplay: "1920s",
-};
-
-const mockSearchResponse: FDSearchResponse = {
-  data: {
-    searchBrowse: {
-      edges: [{ node: mockSearchNode }],
-      totalResults: 1,
-      pageInfo: {
-        hasNextPage: false,
-        endCursor: "cursor-1",
-      },
-    },
+  brand: {
+    "@type": "Brand",
+    name: "Luxury Antiques Gallery",
   },
 };
 
-const mockItemResponse: FDItemResponse = {
-  data: {
-    item: mockItemDetail,
-  },
-};
+const mockItemHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <script type="application/ld+json">${JSON.stringify(mockJsonLdProduct)}</script>
+</head>
+<body></body>
+</html>
+`;
 
 // --- Pure Function Tests ---
 
 describe("buildSearchUriRef", () => {
-  it("builds URI with minimal query", () => {
+  it("builds uriRef with minimal query", () => {
     const uriRef = buildSearchUriRef({ keywords: "art deco lamp" });
 
-    expect(uriRef).toContain("/search/");
-    expect(uriRef).toContain("q=art%20deco%20lamp");
+    expect(uriRef).toBe("/search/?q=art+deco+lamp");
   });
 
   it("includes category filter", () => {
@@ -238,255 +226,323 @@ describe("buildSearchUriRef", () => {
   });
 });
 
-describe("buildSearchVariables", () => {
-  it("builds variables with default page size", () => {
-    const variables = buildSearchVariables({ keywords: "lamp" });
-
-    expect(variables.first).toBe(24);
-    expect(variables.localeFilter).toBe("en-US");
-    expect(typeof variables.uriRef).toBe("string");
-  });
-
-  it("uses custom page size", () => {
-    const variables = buildSearchVariables({
-      keywords: "lamp",
-      pageSize: 50,
-    });
-
-    expect(variables.first).toBe(50);
-  });
-});
-
-describe("buildGraphQLRequest", () => {
-  it("builds valid JSON request body", () => {
-    const body = buildGraphQLRequest(
-      "query Test { test }",
-      { foo: "bar" },
-      "TestQuery",
-    );
-
-    const parsed = JSON.parse(body);
-    expect(parsed.query).toBe("query Test { test }");
-    expect(parsed.variables).toEqual({ foo: "bar" });
-    expect(parsed.operationName).toBe("TestQuery");
-  });
-});
-
-describe("extractImageUrl", () => {
-  it("prefers webp format", () => {
-    const photo = {
-      masterOrZoomPath: "https://example.com/image.jpg",
-      versions: { webp: { path: "https://example.com/image.webp" } },
-    };
-
-    expect(extractImageUrl(photo)).toBe("https://example.com/image.webp");
-  });
-
-  it("falls back to masterOrZoomPath", () => {
-    const photo = {
-      masterOrZoomPath: "https://example.com/image.jpg",
-    };
-
-    expect(extractImageUrl(photo)).toBe("https://example.com/image.jpg");
-  });
-
-  it("falls back to placeholder", () => {
-    const photo = {
-      placeholder: "https://example.com/placeholder.jpg",
-    };
-
-    expect(extractImageUrl(photo)).toBe("https://example.com/placeholder.jpg");
-  });
-
-  it("returns empty string for undefined", () => {
-    expect(extractImageUrl(undefined)).toBe("");
-  });
-
-  it("returns empty string for empty object", () => {
-    expect(extractImageUrl({})).toBe("");
-  });
-});
-
 describe("buildItemUrl", () => {
-  it("returns browseUrl with https prefix if missing", () => {
-    const url = buildItemUrl("/furniture/lighting/lamp/id-123/", "id-123");
+  it("builds correct item URL from ID", () => {
+    const url = buildItemUrl("12345");
 
-    expect(url).toBe("https://www.1stdibs.com/furniture/lighting/lamp/id-123/");
-  });
-
-  it("returns browseUrl as-is if already absolute", () => {
-    const url = buildItemUrl(
-      "https://www.1stdibs.com/furniture/lamp/id-123/",
-      "id-123",
-    );
-
-    expect(url).toBe("https://www.1stdibs.com/furniture/lamp/id-123/");
-  });
-
-  it("constructs URL from serviceId if no browseUrl", () => {
-    const url = buildItemUrl(undefined, "id-M-12345");
-
-    expect(url).toBe("https://www.1stdibs.com/item/id-M-12345");
-  });
-
-  it("handles both undefined", () => {
-    const url = buildItemUrl(undefined, undefined);
-
-    expect(url).toBe("https://www.1stdibs.com/item/");
+    expect(url).toBe("https://www.1stdibs.com/item/id-f_12345/");
   });
 });
 
-describe("buildSellerLocation", () => {
-  it("builds full location string", () => {
-    const location = buildSellerLocation({
-      city: "New York",
-      region: "NY",
-      country: "United States",
-    });
-
-    expect(location).toBe("New York, NY, United States");
+describe("extractItemIdFromServiceId", () => {
+  it("extracts ID from serviceId with f_ prefix", () => {
+    expect(extractItemIdFromServiceId("f_12345")).toBe("12345");
   });
 
-  it("handles partial location", () => {
-    const location = buildSellerLocation({
-      city: "Paris",
-      country: "France",
-    });
-
-    expect(location).toBe("Paris, France");
-  });
-
-  it("returns undefined for undefined input", () => {
-    expect(buildSellerLocation(undefined)).toBeUndefined();
-  });
-
-  it("returns undefined for empty object", () => {
-    expect(buildSellerLocation({})).toBeUndefined();
+  it("returns original if no prefix", () => {
+    expect(extractItemIdFromServiceId("12345")).toBe("12345");
   });
 });
 
-describe("buildDimensionsString", () => {
-  it("builds dimensions with unit", () => {
-    const dims = buildDimensionsString({
-      display: { value: "18", unit: "in" },
-    });
-
-    expect(dims).toBe("18 in");
-  });
-
-  it("returns value without unit if unit is empty", () => {
-    const dims = buildDimensionsString({
-      display: { value: "18 x 10 inches", unit: "" },
-    });
-
-    expect(dims).toBe("18 x 10 inches");
-  });
-
-  it("falls back to convertedDisplay", () => {
-    const dims = buildDimensionsString({
-      convertedDisplay: { value: "45 cm", unit: "" },
-    });
-
-    expect(dims).toBe("45 cm");
-  });
-
-  it("returns undefined for undefined input", () => {
-    expect(buildDimensionsString(undefined)).toBeUndefined();
-  });
-
-  it("returns undefined for empty measurement", () => {
-    expect(buildDimensionsString({})).toBeUndefined();
+describe("encodeItemGlobalId", () => {
+  it("encodes item ID to base64 global ID", () => {
+    const globalId = encodeItemGlobalId("12345");
+    expect(globalId).toBe(btoa("Item:f_12345"));
   });
 });
 
-describe("mapSearchNode", () => {
+describe("mapGraphQLItemToSearchResult", () => {
   it("maps all fields correctly", () => {
-    const result = mapSearchNode(mockSearchNode);
+    const result = mapGraphQLItemToSearchResult(mockGraphQLItem);
 
     expect(result.platform).toBe(PLATFORM);
-    expect(result.itemId).toBe("id-M-12345");
+    expect(result.itemId).toBe("12345");
     expect(result.title).toBe("Art Deco Bronze Table Lamp");
     expect(result.currentPrice).toBe(4500);
     expect(result.currency).toBe("USD");
-    expect(result.imageUrl).toBe("https://a.1stdibscdn.com/art-deco-lamp.webp");
+    expect(result.imageUrl).toBe("https://a.1stdibscdn.com/lamp-small.jpg");
     expect(result.thumbnailUrl).toBe(result.imageUrl);
     expect(result.url).toBe(
       "https://www.1stdibs.com/furniture/lighting/table-lamps/art-deco-bronze-lamp/id-f_12345/",
     );
-    expect(result.auctionHouse).toBe("Luxury Antiques Gallery");
     expect(result.status).toBe("online");
   });
 
-  it("handles minimal node with defaults", () => {
-    const result = mapSearchNode(mockSearchNodeMinimal);
+  it("handles missing optional fields", () => {
+    const minimalItem: GraphQLItem = {
+      serviceId: "f_99999",
+      title: "Test Item",
+      pdpURL: "/item/id-f_99999/",
+      firstPhotoWebPath: null,
+      pricing: null,
+      seller: null,
+    };
+
+    const result = mapGraphQLItemToSearchResult(minimalItem);
 
     expect(result.platform).toBe(PLATFORM);
-    expect(result.itemId).toBe("id-M-99999");
-    expect(result.title).toBe("");
+    expect(result.itemId).toBe("99999");
+    expect(result.title).toBe("Test Item");
     expect(result.currentPrice).toBe(0);
     expect(result.currency).toBe("USD");
     expect(result.imageUrl).toBe("");
     expect(result.status).toBe("online");
   });
-
-  it("status is always online for buy-now marketplace", () => {
-    const result = mapSearchNode(mockSearchNode);
-    expect(result.status).toBe("online");
-  });
 });
 
-describe("buildUnifiedItem", () => {
+describe("mapGraphQLItemDetailToUnifiedItem", () => {
   it("builds complete unified item", () => {
-    const item = buildUnifiedItem("id-M-12345", mockItemDetail);
+    const item = mapGraphQLItemDetailToUnifiedItem(mockGraphQLItemDetail);
 
-    expect(item.id).toBe("fd-id-M-12345");
-    expect(item.platformItemId).toBe("id-M-12345");
+    expect(item.id).toBe("fd-12345");
+    expect(item.platformItemId).toBe("12345");
     expect(item.platform).toBe(PLATFORM);
     expect(item.title).toBe("Art Deco Bronze Table Lamp");
     expect(item.description).toContain("1920s Art Deco bronze table lamp");
-    expect(item.images).toHaveLength(2);
-    expect(item.images[0]).toBe("https://a.1stdibscdn.com/lamp-1.webp");
-    expect(item.category).toEqual(["Lighting", "Table Lamps"]);
+    expect(item.images).toContain("https://a.1stdibscdn.com/lamp-large.jpg");
+    expect(item.images).toContain("https://a.1stdibscdn.com/lamp-1.jpg");
 
     expect(item.currentPrice).toBe(4500);
     expect(item.currency).toBe("USD");
-    expect(item.buyNowPrice).toBe(4050);
     expect(item.auctionType).toBe("buy-now");
 
-    expect(item.seller.id).toBe("dealer-123");
     expect(item.seller.name).toBe("Luxury Antiques Gallery");
-    expect(item.seller.rating).toBe(4.8);
-    expect(item.seller.location).toBe("New York, NY, United States");
-
-    expect(item.condition).toBe("Excellent");
-    expect(item.conditionNotes).toContain("Minor wear consistent with age");
-    expect(item.provenance).toBe("Private collection, Paris");
-    expect(item.dimensions).toBe("18 in. H x 10 in. W");
-    expect(item.materials).toEqual(["Bronze", "Glass"]);
-
-    expect(item.facets?.style).toEqual(["Art Deco"]);
-    expect(item.facets?.period).toEqual(["1920s"]);
-    expect(item.facets?.creators).toEqual(["Edgar Brandt"]);
+    expect(item.category).toEqual(["Lighting", "Table Lamps"]);
+    expect(item.facets?.categories).toEqual(["Lighting", "Table Lamps"]);
   });
 
-  it("handles empty/missing data gracefully", () => {
-    const item = buildUnifiedItem("id-empty", {});
+  it("handles missing optional fields", () => {
+    const minimalItem: GraphQLItemDetail = {
+      serviceId: "f_99999",
+      title: "Test",
+      pdpURL: "/item/id-f_99999/",
+      description: null,
+      firstPhotoWebPath: null,
+      photos: null,
+      pricing: null,
+      seller: null,
+      categories: null,
+    };
 
-    expect(item.id).toBe("fd-id-empty");
-    expect(item.title).toBe("");
+    const item = mapGraphQLItemDetailToUnifiedItem(minimalItem);
+
+    expect(item.id).toBe("fd-99999");
+    expect(item.title).toBe("Test");
     expect(item.description).toBe("");
     expect(item.images).toEqual([]);
-    expect(item.category).toEqual([]);
     expect(item.currentPrice).toBe(0);
     expect(item.currency).toBe("USD");
     expect(item.seller.name).toBe("Unknown");
     expect(item.auctionType).toBe("buy-now");
-    expect(item.materials).toBeUndefined();
+  });
+});
+
+// --- JSON-LD Tests (for fallback functionality) ---
+
+describe("extractJsonLd", () => {
+  it("extracts JSON-LD from script tag", () => {
+    const html = `
+      <html>
+        <script type="application/ld+json">{"@type":"Product","name":"Test"}</script>
+      </html>
+    `;
+
+    const result = extractJsonLd(html);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({ "@type": "Product", name: "Test" });
   });
 
-  it("auction type is always buy-now", () => {
-    const item = buildUnifiedItem("id-test", mockItemDetail);
+  it("extracts multiple JSON-LD blocks", () => {
+    const html = `
+      <html>
+        <script type="application/ld+json">{"@type":"Product","name":"Test1"}</script>
+        <script type="application/ld+json">{"@type":"Product","name":"Test2"}</script>
+      </html>
+    `;
+
+    const result = extractJsonLd(html);
+
+    expect(result).toHaveLength(2);
+  });
+
+  it("flattens arrays in JSON-LD", () => {
+    const html = `
+      <html>
+        <script type="application/ld+json">[{"@type":"Product"},{"@type":"WebPage"}]</script>
+      </html>
+    `;
+
+    const result = extractJsonLd(html);
+
+    expect(result).toHaveLength(2);
+  });
+
+  it("skips invalid JSON", () => {
+    const html = `
+      <html>
+        <script type="application/ld+json">{invalid json}</script>
+        <script type="application/ld+json">{"@type":"Product"}</script>
+      </html>
+    `;
+
+    const result = extractJsonLd(html);
+
+    expect(result).toHaveLength(1);
+  });
+
+  it("returns empty array for no JSON-LD", () => {
+    const html = "<html><body>No JSON-LD here</body></html>";
+
+    const result = extractJsonLd(html);
+
+    expect(result).toEqual([]);
+  });
+});
+
+describe("extractItemId", () => {
+  it("extracts ID from URL with id-f_ format", () => {
+    const url = "https://www.1stdibs.com/furniture/lighting/lamp/id-f_12345/";
+
+    expect(extractItemId(url)).toBe("12345");
+  });
+
+  it("returns empty string for URL without ID", () => {
+    const url = "https://www.1stdibs.com/furniture/lighting/";
+
+    expect(extractItemId(url)).toBe("");
+  });
+
+  it("handles relative URLs", () => {
+    const url = "/furniture/lighting/lamp/id-f_67890/";
+
+    expect(extractItemId(url)).toBe("67890");
+  });
+});
+
+describe("extractImageFromJsonLd", () => {
+  it("returns string image as-is", () => {
+    const image = "https://example.com/image.jpg";
+
+    expect(extractImageFromJsonLd(image)).toBe(image);
+  });
+
+  it("extracts contentUrl from ImageObject", () => {
+    const image: JsonLdImageObject = {
+      "@type": "ImageObject",
+      contentUrl: "https://example.com/image.jpg",
+    };
+
+    expect(extractImageFromJsonLd(image)).toBe("https://example.com/image.jpg");
+  });
+
+  it("extracts first image from array", () => {
+    const images: JsonLdImageObject[] = [
+      { "@type": "ImageObject", contentUrl: "https://example.com/first.jpg" },
+      { "@type": "ImageObject", contentUrl: "https://example.com/second.jpg" },
+    ];
+
+    expect(extractImageFromJsonLd(images)).toBe(
+      "https://example.com/first.jpg",
+    );
+  });
+
+  it("returns empty string for undefined", () => {
+    expect(extractImageFromJsonLd(undefined)).toBe("");
+  });
+});
+
+describe("extractAllImagesFromJsonLd", () => {
+  it("returns array with single string image", () => {
+    const image = "https://example.com/image.jpg";
+
+    expect(extractAllImagesFromJsonLd(image)).toEqual([image]);
+  });
+
+  it("extracts all contentUrls from array", () => {
+    const images: JsonLdImageObject[] = [
+      { "@type": "ImageObject", contentUrl: "https://example.com/first.jpg" },
+      { "@type": "ImageObject", contentUrl: "https://example.com/second.jpg" },
+    ];
+
+    expect(extractAllImagesFromJsonLd(images)).toEqual([
+      "https://example.com/first.jpg",
+      "https://example.com/second.jpg",
+    ]);
+  });
+
+  it("returns empty array for undefined", () => {
+    expect(extractAllImagesFromJsonLd(undefined)).toEqual([]);
+  });
+
+  it("extracts single ImageObject", () => {
+    const image: JsonLdImageObject = {
+      "@type": "ImageObject",
+      contentUrl: "https://example.com/image.jpg",
+    };
+
+    expect(extractAllImagesFromJsonLd(image)).toEqual([
+      "https://example.com/image.jpg",
+    ]);
+  });
+});
+
+describe("mapProductToUnifiedItem", () => {
+  it("builds complete unified item from JSON-LD", () => {
+    const item = mapProductToUnifiedItem(mockJsonLdProduct);
+
+    expect(item.id).toBe("fd-12345");
+    expect(item.platformItemId).toBe("12345");
+    expect(item.platform).toBe(PLATFORM);
+    expect(item.title).toBe("Art Deco Bronze Table Lamp");
+    expect(item.description).toContain("1920s Art Deco bronze table lamp");
+    expect(item.images).toHaveLength(2);
+
+    expect(item.currentPrice).toBe(4500);
+    expect(item.currency).toBe("USD");
     expect(item.auctionType).toBe("buy-now");
+
+    expect(item.seller.name).toBe("Luxury Antiques Gallery");
+  });
+
+  it("handles minimal product with defaults", () => {
+    const minimalProduct: JsonLdProduct = {
+      "@type": "Product",
+      name: "Test",
+      url: "/item/id-f_99999/",
+    };
+
+    const item = mapProductToUnifiedItem(minimalProduct);
+
+    expect(item.id).toBe("fd-99999");
+    expect(item.title).toBe("Test");
+    expect(item.description).toBe("");
+    expect(item.images).toEqual([]);
+    expect(item.currentPrice).toBe(0);
+    expect(item.currency).toBe("USD");
+    expect(item.seller.name).toBe("Unknown");
+    expect(item.auctionType).toBe("buy-now");
+  });
+});
+
+describe("extractItemDetail", () => {
+  it("extracts Product from JSON-LD", () => {
+    const result = extractItemDetail([mockJsonLdProduct]);
+
+    expect(result).not.toBeNull();
+    expect(result?.name).toBe("Art Deco Bronze Table Lamp");
+  });
+
+  it("returns null for non-Product data", () => {
+    const result = extractItemDetail([
+      { "@type": "WebPage" } as unknown as JsonLdProduct,
+    ]);
+
+    expect(result).toBeNull();
+  });
+
+  it("returns null for empty input", () => {
+    expect(extractItemDetail([])).toBeNull();
   });
 });
 
@@ -498,7 +554,11 @@ describe("constants", () => {
   });
 
   it("has correct default rate limit", () => {
-    expect(DEFAULT_RATE_LIMIT).toBe(4);
+    expect(DEFAULT_RATE_LIMIT).toBe(2);
+  });
+
+  it("has correct GraphQL URL", () => {
+    expect(GRAPHQL_URL).toBe("https://www.1stdibs.com/soa/graphql/");
   });
 });
 
@@ -534,8 +594,9 @@ describe("FirstDibsAdapter", () => {
     let adapter: FirstDibsAdapter;
 
     beforeEach(() => {
-      mockFetch = createMockFetch([{ ok: true, data: mockSearchResponse }]);
-      // Use a high rate limit to avoid delays in tests
+      mockFetch = createMockFetch([
+        { ok: true, json: mockGraphQLSearchResponse },
+      ]);
       const limiter = new RateLimiter({ requestsPerSecond: 1000 });
       adapter = new FirstDibsAdapter({
         fetchFn: mockFetch,
@@ -552,30 +613,38 @@ describe("FirstDibsAdapter", () => {
       expect(results[0].currentPrice).toBe(4500);
     });
 
-    it("sends correct GraphQL request", async () => {
+    it("sends GraphQL request to correct endpoint", async () => {
       await adapter.search({ keywords: "test" });
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
       const [url, options] = mockFetch.mock.calls[0];
-      expect(url).toBe("https://www.1stdibs.com/soa/graphql/");
+      expect(url).toBe(GRAPHQL_URL);
       expect(options?.method).toBe("POST");
       expect(options?.headers).toMatchObject({
         "Content-Type": "application/json",
       });
+    });
 
-      const body = JSON.parse(options?.body as string);
-      expect(body.operationName).toBe("SearchBrowse");
-      expect(body.variables.first).toBe(24);
-      expect(body.variables.uriRef).toContain("q=test");
+    it("sends correct GraphQL variables", async () => {
+      await adapter.search({ keywords: "lamp", pageSize: 10 });
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1]?.body as string);
+      expect(body.variables.uriRef).toContain("q=lamp");
+      expect(body.variables.first).toBe(10);
     });
 
     it("handles empty results", async () => {
-      mockFetch = createMockFetch([
-        {
-          ok: true,
-          data: { data: { searchBrowse: { edges: [] } } },
+      const emptyResponse: GraphQLSearchResponse = {
+        data: {
+          viewer: {
+            itemSearch: {
+              totalResults: 0,
+              edges: [],
+            },
+          },
         },
-      ]);
+      };
+      mockFetch = createMockFetch([{ ok: true, json: emptyResponse }]);
       const limiter = new RateLimiter({ requestsPerSecond: 1000 });
       adapter = new FirstDibsAdapter({
         fetchFn: mockFetch,
@@ -586,8 +655,8 @@ describe("FirstDibsAdapter", () => {
       expect(results).toEqual([]);
     });
 
-    it("handles missing data gracefully", async () => {
-      mockFetch = createMockFetch([{ ok: true, data: {} }]);
+    it("handles null data gracefully", async () => {
+      mockFetch = createMockFetch([{ ok: true, json: { data: null } }]);
       const limiter = new RateLimiter({ requestsPerSecond: 1000 });
       adapter = new FirstDibsAdapter({
         fetchFn: mockFetch,
@@ -611,11 +680,14 @@ describe("FirstDibsAdapter", () => {
       );
     });
 
-    it("throws on GraphQL errors", async () => {
+    it("throws on GraphQL error", async () => {
       mockFetch = createMockFetch([
         {
           ok: true,
-          data: { errors: [{ message: "Invalid query" }] },
+          json: {
+            data: null,
+            errors: [{ message: "Query validation failed" }],
+          },
         },
       ]);
       const limiter = new RateLimiter({ requestsPerSecond: 1000 });
@@ -625,7 +697,7 @@ describe("FirstDibsAdapter", () => {
       });
 
       await expect(adapter.search({ keywords: "test" })).rejects.toThrow(
-        "1stDibs search failed: Invalid query",
+        "1stDibs search failed: Query validation failed",
       );
     });
   });
@@ -635,7 +707,9 @@ describe("FirstDibsAdapter", () => {
     let adapter: FirstDibsAdapter;
 
     beforeEach(() => {
-      mockFetch = createMockFetch([{ ok: true, data: mockItemResponse }]);
+      mockFetch = createMockFetch([
+        { ok: true, json: mockGraphQLItemResponse },
+      ]);
       const limiter = new RateLimiter({ requestsPerSecond: 1000 });
       adapter = new FirstDibsAdapter({
         fetchFn: mockFetch,
@@ -643,27 +717,65 @@ describe("FirstDibsAdapter", () => {
       });
     });
 
-    it("returns unified item", async () => {
-      const item = await adapter.getItem("id-M-12345");
+    it("returns unified item via GraphQL", async () => {
+      const item = await adapter.getItem("12345");
 
-      expect(item.id).toBe("fd-id-M-12345");
+      expect(item.id).toBe("fd-12345");
       expect(item.title).toBe("Art Deco Bronze Table Lamp");
       expect(item.platform).toBe("1stdibs");
       expect(item.auctionType).toBe("buy-now");
     });
 
-    it("sends correct GraphQL request", async () => {
-      await adapter.getItem("id-M-12345");
+    it("sends GraphQL request with encoded ID", async () => {
+      await adapter.getItem("12345");
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
       const body = JSON.parse(mockFetch.mock.calls[0][1]?.body as string);
-      expect(body.operationName).toBe("ItemDetail");
-      expect(body.variables.serviceId).toBe("id-M-12345");
+      expect(body.variables.id).toBe(btoa("Item:f_12345"));
     });
 
-    it("throws when item not found", async () => {
+    it("falls back to HTML/JSON-LD when GraphQL returns null", async () => {
       mockFetch = createMockFetch([
-        { ok: true, data: { data: { item: null } } },
+        { ok: true, json: { data: { node: null } } },
+        { ok: true, text: mockItemHtml },
+      ]);
+      const limiter = new RateLimiter({ requestsPerSecond: 1000 });
+      adapter = new FirstDibsAdapter({
+        fetchFn: mockFetch,
+        rateLimiter: limiter,
+      });
+
+      const item = await adapter.getItem("12345");
+
+      expect(item.id).toBe("fd-12345");
+      expect(item.title).toBe("Art Deco Bronze Table Lamp");
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("falls back to HTML/JSON-LD on GraphQL error", async () => {
+      mockFetch = createMockFetch([
+        {
+          ok: true,
+          json: { data: null, errors: [{ message: "Not found" }] },
+        },
+        { ok: true, text: mockItemHtml },
+      ]);
+      const limiter = new RateLimiter({ requestsPerSecond: 1000 });
+      adapter = new FirstDibsAdapter({
+        fetchFn: mockFetch,
+        rateLimiter: limiter,
+      });
+
+      const item = await adapter.getItem("12345");
+
+      expect(item.id).toBe("fd-12345");
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("throws when item not found via both methods", async () => {
+      mockFetch = createMockFetch([
+        { ok: true, json: { data: { node: null } } },
+        { ok: true, text: "<html><body>Not found</body></html>" },
       ]);
       const limiter = new RateLimiter({ requestsPerSecond: 1000 });
       adapter = new FirstDibsAdapter({
@@ -676,8 +788,11 @@ describe("FirstDibsAdapter", () => {
       );
     });
 
-    it("throws on failed request", async () => {
-      mockFetch = createMockFetch([{ ok: false, status: 404 }]);
+    it("throws on HTTP error during fallback", async () => {
+      mockFetch = createMockFetch([
+        { ok: true, json: { data: { node: null } } },
+        { ok: false, status: 404 },
+      ]);
       const limiter = new RateLimiter({ requestsPerSecond: 1000 });
       adapter = new FirstDibsAdapter({
         fetchFn: mockFetch,
@@ -685,7 +800,7 @@ describe("FirstDibsAdapter", () => {
       });
 
       await expect(adapter.getItem("test")).rejects.toThrow(
-        "1stDibs item fetch failed: HTTP 404",
+        "1stDibs item not found: test: HTTP 404",
       );
     });
   });
