@@ -180,7 +180,7 @@ function createTools(context: ToolContext = {}) {
           .number()
           .min(1)
           .max(50)
-          .default(12)
+          .default(10)
           .describe("Number of results to return"),
         platforms: z
           .array(z.string())
@@ -292,7 +292,7 @@ function createTools(context: ToolContext = {}) {
           .number()
           .min(1)
           .max(50)
-          .default(12)
+          .default(10)
           .describe("Number of comparables to return"),
         platforms: z
           .array(z.string())
