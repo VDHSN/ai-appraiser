@@ -298,7 +298,7 @@ describe("Chat API Route", () => {
       expect(mockGetTracedModel).toHaveBeenCalledWith("test-model");
     });
 
-    it("uses gemini-2.0-flash when flag is enabled", async () => {
+    it("uses gemini-3-flash-preview when flag is enabled", async () => {
       mockIsFeatureEnabled.mockResolvedValueOnce(true);
 
       const request = new Request("http://localhost/api/chat", {
@@ -317,7 +317,7 @@ describe("Chat API Route", () => {
         "flash-user",
         false,
       );
-      expect(mockGetTracedModel).toHaveBeenCalledWith("gemini-2.0-flash");
+      expect(mockGetTracedModel).toHaveBeenCalledWith("gemini-3-flash-preview");
     });
 
     it("uses anonymous distinctId when header is missing", async () => {

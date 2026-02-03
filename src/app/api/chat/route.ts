@@ -92,7 +92,7 @@ export async function POST(req: Request) {
       false,
     );
     const modelId = useFlashModel
-      ? "gemini-2.0-flash"
+      ? "gemini-3-flash-preview"
       : (agent.model ?? "gemini-2.5-pro-preview-05-06");
 
     const result = streamText({
