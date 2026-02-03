@@ -107,13 +107,18 @@ class PostHogServerAnalytics implements ServerAnalytics {
     });
   }
 
-  captureException(error: Error, context?: Record<string, unknown>) {
+  captureException(
+    error: Error,
+    context?: Record<string, unknown> & { distinct_id?: string },
+  ) {
+    const distinctId = context?.distinct_id ?? "server";
     this.client.capture({
-      distinctId: "server",
+      distinctId,
       event: "$exception",
       properties: {
         $exception_message: error.message,
         $exception_stack: error.stack,
+        $exception_type: error.name,
         ...context,
       },
     });
