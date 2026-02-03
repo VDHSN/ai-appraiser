@@ -1,6 +1,6 @@
 /**
  * 1stDibs platform adapter.
- * Implements search and item details via their GraphQL API.
+ * Implements search via GraphQL API and item details via JSON-LD fallback.
  * Note: Price history is not publicly available, returns empty results.
  */
 
@@ -14,507 +14,458 @@ import { RateLimiter } from "./rate-limiter";
 
 // --- API Configuration ---
 
+const BASE_URL = "https://www.1stdibs.com";
 const GRAPHQL_URL = "https://www.1stdibs.com/soa/graphql/";
 const PLATFORM = "1stdibs" as const;
 
-const REQUIRED_HEADERS: HeadersInit = {
+const HTML_HEADERS: HeadersInit = {
+  Accept:
+    "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.5",
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+};
+
+const GRAPHQL_HEADERS: HeadersInit = {
   "Content-Type": "application/json",
-  Origin: "https://www.1stdibs.com",
-  Referer: "https://www.1stdibs.com/",
   Accept: "application/json",
   "User-Agent":
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 };
 
-// Default rate limit: 4 requests per second
-const DEFAULT_RATE_LIMIT = 4;
+// Default rate limit: 2 requests per second (be conservative)
+const DEFAULT_RATE_LIMIT = 2;
 
-// --- GraphQL Query Definitions ---
+// --- GraphQL Query & Types ---
 
 const SEARCH_QUERY = `
-query SearchBrowse($first: Int!, $uriRef: String!, $localeFilter: String) {
-  searchBrowse(first: $first, uriRef: $uriRef, localeFilter: $localeFilter) {
-    edges {
-      node {
-        serviceId
-        title
-        browseUrl
-        localizedPdpUrl
-        contemporaryTrackingData {
-          price
-          priceCurrency
-        }
-        seller {
-          serviceId
-          sellerProfile {
-            company
-          }
-          sellerPreferences {
-            sellerLocation {
-              city
-              region
+query ItemSearch($uriRef: String!, $first: Int!) {
+  viewer {
+    itemSearch(uriRef: $uriRef, first: $first) {
+      totalResults
+      edges {
+        node {
+          item {
+            serviceId
+            title
+            pdpURL
+            firstPhotoWebPath(size: small)
+            pricing {
+              amount {
+                amount
+                currency
+              }
+            }
+            seller {
+              id
             }
           }
         }
-        photos(limit: 1) {
-          masterOrZoomPath
-          placeholder
-        }
-        classification {
-          categories {
-            name
-          }
-        }
       }
-    }
-    totalResults
-    pageInfo {
-      hasNextPage
-      endCursor
     }
   }
 }
 `;
 
 const ITEM_DETAIL_QUERY = `
-query ItemDetail($serviceId: String!) {
-  item(serviceId: $serviceId) {
-    serviceId
-    title
-    description
-    browseUrl
-    localizedPdpUrl
-    contemporaryTrackingData {
-      price
-      priceCurrency
-      netPrice
-    }
-    seller {
+query ItemDetail($id: ID!) {
+  node(id: $id) {
+    ... on Item {
       serviceId
-      sellerProfile {
-        company
-        aboutUs
+      title
+      pdpURL
+      description
+      firstPhotoWebPath(size: large)
+      photos {
+        webPath(size: large)
       }
-      sellerPreferences {
-        sellerLocation {
-          city
-          region
-          country
+      pricing {
+        amount {
+          amount
+          currency
         }
       }
-      reviewsInfo {
-        averageRating
-        reviewCount
+      seller {
+        id
+        displayName
       }
-    }
-    photos {
-      masterOrZoomPath
-      placeholder
-      versions {
-        webp {
-          path
-        }
-      }
-    }
-    classification {
       categories {
         name
-        urlLabel
-      }
-      creators {
-        name
       }
     }
-    measurement {
-      display {
-        value
-        unit
-      }
-      convertedDisplay {
-        value
-        unit
-      }
-    }
-    materials {
-      name
-    }
-    condition {
-      displayCondition
-      description
-    }
-    provenance
-    styleDisplay
-    periodDisplay
   }
 }
 `;
 
-// --- API Response Types (match external GraphQL shape) ---
-
-interface FDPhoto {
-  masterOrZoomPath?: string;
-  placeholder?: string;
-  versions?: {
-    webp?: {
-      path?: string;
-    };
-  };
-}
-
-interface FDSeller {
-  serviceId?: string;
-  sellerProfile?: {
-    company?: string;
-    aboutUs?: string;
-  };
-  sellerPreferences?: {
-    sellerLocation?: {
-      city?: string;
-      region?: string;
-      country?: string;
-    };
-  };
-  reviewsInfo?: {
-    averageRating?: number;
-    reviewCount?: number;
-  };
-}
-
-interface FDCategory {
-  name?: string;
-  urlLabel?: string;
-}
-
-interface FDSearchNode {
+interface GraphQLItem {
   serviceId: string;
-  title?: string;
-  browseUrl?: string;
-  localizedPdpUrl?: string;
-  contemporaryTrackingData?: {
-    price?: number;
-    priceCurrency?: string;
-  };
-  seller?: FDSeller;
-  photos?: FDPhoto[];
-  classification?: {
-    categories?: FDCategory[];
-  };
+  title: string;
+  pdpURL: string;
+  firstPhotoWebPath: string | null;
+  pricing: {
+    amount: {
+      amount: number;
+      currency: string;
+    };
+  } | null;
+  seller: {
+    id: string;
+  } | null;
 }
 
-interface FDSearchEdge {
-  node: FDSearchNode;
+interface GraphQLItemDetail {
+  serviceId: string;
+  title: string;
+  pdpURL: string;
+  description: string | null;
+  firstPhotoWebPath: string | null;
+  photos: Array<{ webPath: string }> | null;
+  pricing: {
+    amount: {
+      amount: number;
+      currency: string;
+    };
+  } | null;
+  seller: {
+    id: string;
+    displayName: string | null;
+  } | null;
+  categories: Array<{ name: string }> | null;
 }
 
-interface FDSearchResponse {
-  data?: {
-    searchBrowse?: {
-      edges?: FDSearchEdge[];
-      totalResults?: number;
-      pageInfo?: {
-        hasNextPage?: boolean;
-        endCursor?: string;
+interface GraphQLSearchResponse {
+  data: {
+    viewer: {
+      itemSearch: {
+        totalResults: number;
+        edges: Array<{
+          node: {
+            item: GraphQLItem;
+          };
+        }>;
       };
     };
-  };
+  } | null;
   errors?: Array<{ message: string }>;
 }
 
-interface FDMeasurement {
-  display?: {
-    value?: string;
-    unit?: string;
-  };
-  convertedDisplay?: {
-    value?: string;
-    unit?: string;
-  };
+interface GraphQLItemResponse {
+  data: {
+    node: GraphQLItemDetail | null;
+  } | null;
+  errors?: Array<{ message: string }>;
 }
 
-interface FDItemDetail {
-  serviceId?: string;
-  title?: string;
+// --- JSON-LD Types (for item detail fallback) ---
+
+interface JsonLdOffer {
+  "@type": "Offer";
+  price: number;
+  priceCurrency: string;
+  availability?: string;
+}
+
+interface JsonLdBrand {
+  "@type": "Brand";
+  name: string;
+}
+
+interface JsonLdImageObject {
+  "@type": "ImageObject";
+  contentUrl: string;
+  thumbnailUrl?: string;
+  author?: string;
+  caption?: string;
+}
+
+interface JsonLdProduct {
+  "@type": "Product";
+  name: string;
+  url: string;
   description?: string;
-  browseUrl?: string;
-  localizedPdpUrl?: string;
-  contemporaryTrackingData?: {
-    price?: number;
-    priceCurrency?: string;
-    netPrice?: number;
-  };
-  seller?: FDSeller;
-  photos?: FDPhoto[];
-  classification?: {
-    categories?: FDCategory[];
-    creators?: Array<{ name?: string }>;
-  };
-  measurement?: FDMeasurement;
-  materials?: Array<{ name?: string }>;
-  condition?: {
-    displayCondition?: string;
-    description?: string;
-  };
-  provenance?: string;
-  styleDisplay?: string;
-  periodDisplay?: string;
+  image?: string | JsonLdImageObject | JsonLdImageObject[];
+  offers?: JsonLdOffer;
+  brand?: JsonLdBrand;
 }
 
-interface FDItemResponse {
-  data?: {
-    item?: FDItemDetail;
-  };
-  errors?: Array<{ message: string }>;
-}
+type JsonLdData = JsonLdProduct | Record<string, unknown>;
 
-// --- Pure Functions for Mapping ---
-
-const SORT_MAP: Record<string, string> = {
-  relevance: "",
-  "price-asc": "&sort=price-asc",
-  "price-desc": "&sort=price-desc",
-  "ending-soon": "", // Not applicable for buy-now marketplace
-};
+// --- Pure Functions for GraphQL ---
 
 /**
- * Build GraphQL search URI reference from SearchQuery.
- * 1stDibs uses URL-encoded search parameters in the uriRef variable.
+ * Build the uriRef parameter for GraphQL search from SearchQuery.
  */
 function buildSearchUriRef(query: SearchQuery): string {
-  const parts: string[] = [];
+  const params = new URLSearchParams();
+  params.set("q", query.keywords);
 
-  // Base search path
-  parts.push(`/search/?q=${encodeURIComponent(query.keywords)}`);
-
-  // Category filter
+  if (query.priceRange?.min !== undefined) {
+    params.set("price_min", String(query.priceRange.min));
+  }
+  if (query.priceRange?.max !== undefined) {
+    params.set("price_max", String(query.priceRange.max));
+  }
+  if (query.sort && query.sort !== "relevance") {
+    params.set("sort", query.sort);
+  }
   if (query.category) {
-    parts.push(`&category=${encodeURIComponent(query.category)}`);
+    params.set("category", query.category);
   }
-
-  // Price range
-  if (query.priceRange) {
-    if (query.priceRange.min !== undefined) {
-      parts.push(`&price_min=${query.priceRange.min}`);
-    }
-    if (query.priceRange.max !== undefined) {
-      parts.push(`&price_max=${query.priceRange.max}`);
-    }
-  }
-
-  // Location filter
   if (query.location) {
-    parts.push(`&seller_location=${encodeURIComponent(query.location)}`);
+    params.set("seller_location", query.location);
   }
 
-  // Sort order
-  const sortParam = SORT_MAP[query.sort ?? "relevance"];
-  if (sortParam) {
-    parts.push(sortParam);
-  }
-
-  return parts.join("");
+  return `/search/?${params.toString()}`;
 }
 
 /**
- * Build GraphQL variables for search query.
+ * Extract numeric item ID from serviceId.
+ * serviceId format: "f_12345" -> returns "12345"
  */
-function buildSearchVariables(
-  query: SearchQuery,
-): Record<string, string | number> {
-  const pageSize = query.pageSize ?? 24;
-  const uriRef = buildSearchUriRef(query);
-
-  return {
-    first: pageSize,
-    uriRef,
-    localeFilter: "en-US",
-  };
+function extractItemIdFromServiceId(serviceId: string): string {
+  return serviceId.replace(/^f_/, "");
 }
 
 /**
- * Build GraphQL request body.
+ * Map GraphQL item to SearchResult.
  */
-function buildGraphQLRequest(
-  query: string,
-  variables: Record<string, unknown>,
-  operationName: string,
-): string {
-  return JSON.stringify({
-    query,
-    variables,
-    operationName,
-  });
-}
-
-/**
- * Extract image URL from photo object, preferring webp format.
- */
-function extractImageUrl(photo?: FDPhoto): string {
-  if (!photo) return "";
-  return (
-    photo.versions?.webp?.path ??
-    photo.masterOrZoomPath ??
-    photo.placeholder ??
-    ""
-  );
-}
-
-/**
- * Build full item URL from browse URL or service ID.
- */
-function buildItemUrl(browseUrl?: string, serviceId?: string): string {
-  if (browseUrl) {
-    return browseUrl.startsWith("http")
-      ? browseUrl
-      : `https://www.1stdibs.com${browseUrl}`;
-  }
-  return `https://www.1stdibs.com/item/${serviceId ?? ""}`;
-}
-
-/**
- * Build seller location string from location parts.
- */
-function buildSellerLocation(location?: {
-  city?: string;
-  region?: string;
-  country?: string;
-}): string | undefined {
-  if (!location) return undefined;
-  return (
-    [location.city, location.region, location.country]
-      .filter(Boolean)
-      .join(", ") || undefined
-  );
-}
-
-/**
- * Map 1stDibs search node to SearchResult.
- */
-function mapSearchNode(node: FDSearchNode): SearchResult {
-  const imageUrl = extractImageUrl(node.photos?.[0]);
-  const price = node.contemporaryTrackingData?.price ?? 0;
-  const currency = node.contemporaryTrackingData?.priceCurrency ?? "USD";
+function mapGraphQLItemToSearchResult(item: GraphQLItem): SearchResult {
+  const imageUrl = item.firstPhotoWebPath ?? "";
 
   return {
     platform: PLATFORM,
-    itemId: node.serviceId,
-    title: node.title ?? "",
-    currentPrice: price,
-    currency,
+    itemId: extractItemIdFromServiceId(item.serviceId),
+    title: item.title,
+    currentPrice: item.pricing?.amount.amount ?? 0,
+    currency: item.pricing?.amount.currency ?? "USD",
     imageUrl,
     thumbnailUrl: imageUrl,
-    url: buildItemUrl(node.localizedPdpUrl ?? node.browseUrl, node.serviceId),
-    auctionHouse: node.seller?.sellerProfile?.company,
-    status: "online", // 1stDibs items are buy-now, always "online"
+    url: `${BASE_URL}${item.pdpURL}`,
+    status: "online",
   };
 }
 
 /**
- * Build dimensions string from measurement data.
+ * Map GraphQL item detail to UnifiedItem.
  */
-function buildDimensionsString(
-  measurement?: FDMeasurement,
-): string | undefined {
-  if (!measurement) return undefined;
-
-  const display = measurement.display ?? measurement.convertedDisplay;
-  if (!display?.value) return undefined;
-
-  return display.unit ? `${display.value} ${display.unit}` : display.value;
-}
-
-/**
- * Build UnifiedItem from item detail response.
- */
-function buildUnifiedItem(itemId: string, detail: FDItemDetail): UnifiedItem {
-  const categoryNames =
-    (detail.classification?.categories
-      ?.map((c) => c.name)
-      .filter(Boolean) as string[]) ?? [];
-
-  const images =
-    (detail.photos?.map(extractImageUrl).filter(Boolean) as string[]) ?? [];
-
-  const materials =
-    (detail.materials?.map((m) => m.name).filter(Boolean) as string[]) ?? [];
-
-  const sellerLocation = buildSellerLocation(
-    detail.seller?.sellerPreferences?.sellerLocation,
-  );
+function mapGraphQLItemDetailToUnifiedItem(
+  item: GraphQLItemDetail,
+): UnifiedItem {
+  const itemId = extractItemIdFromServiceId(item.serviceId);
+  const images = item.photos?.map((p) => p.webPath) ?? [];
+  if (item.firstPhotoWebPath && !images.includes(item.firstPhotoWebPath)) {
+    images.unshift(item.firstPhotoWebPath);
+  }
 
   return {
     id: `fd-${itemId}`,
     platformItemId: itemId,
     platform: PLATFORM,
-    url: buildItemUrl(detail.localizedPdpUrl ?? detail.browseUrl, itemId),
+    url: `${BASE_URL}${item.pdpURL}`,
 
-    title: detail.title ?? "",
-    description: detail.description ?? "",
+    title: item.title,
+    description: item.description ?? "",
     images,
-    category: categoryNames,
+    category: item.categories?.map((c) => c.name) ?? [],
 
-    currentPrice: detail.contemporaryTrackingData?.price ?? 0,
-    currency: detail.contemporaryTrackingData?.priceCurrency ?? "USD",
-    buyNowPrice: detail.contemporaryTrackingData?.netPrice,
+    currentPrice: item.pricing?.amount.amount ?? 0,
+    currency: item.pricing?.amount.currency ?? "USD",
 
-    auctionType: "buy-now", // 1stDibs is a buy-now marketplace
-    // No endTime or startTime for buy-now items
+    auctionType: "buy-now",
 
     seller: {
-      id: detail.seller?.serviceId,
-      name: detail.seller?.sellerProfile?.company ?? "Unknown",
-      rating: detail.seller?.reviewsInfo?.averageRating,
-      location: sellerLocation,
+      name: item.seller?.displayName ?? "Unknown",
     },
 
-    condition: detail.condition?.displayCondition,
-    conditionNotes: detail.condition?.description,
-    provenance: detail.provenance,
-    dimensions: buildDimensionsString(detail.measurement),
-    materials: materials.length > 0 ? materials : undefined,
-
     facets: {
-      categories: categoryNames,
-      style: detail.styleDisplay ? [detail.styleDisplay] : [],
-      period: detail.periodDisplay ? [detail.periodDisplay] : [],
-      creators:
-        (detail.classification?.creators
-          ?.map((c) => c.name)
-          .filter(Boolean) as string[]) ?? [],
+      categories: item.categories?.map((c) => c.name) ?? [],
+      style: [],
+      period: [],
+      creators: item.seller?.displayName ? [item.seller.displayName] : [],
     },
   };
 }
 
-// --- HTTP Helper ---
+/**
+ * Encode item ID to GraphQL global ID.
+ */
+function encodeItemGlobalId(itemId: string): string {
+  return btoa(`Item:f_${itemId}`);
+}
+
+// --- Pure Functions for URL Building (legacy, kept for buildItemUrl) ---
+
+/**
+ * Build item detail URL from item ID.
+ */
+function buildItemUrl(itemId: string): string {
+  return `${BASE_URL}/item/id-f_${itemId}/`;
+}
+
+// --- JSON-LD Extraction (for item detail fallback) ---
+
+/**
+ * Extract JSON-LD data from HTML content.
+ */
+function extractJsonLd(html: string): JsonLdData[] {
+  const results: JsonLdData[] = [];
+  const regex =
+    /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi;
+
+  let match;
+  while ((match = regex.exec(html)) !== null) {
+    try {
+      const data = JSON.parse(match[1]) as JsonLdData | JsonLdData[];
+      if (Array.isArray(data)) {
+        results.push(...data);
+      } else {
+        results.push(data);
+      }
+    } catch {
+      // Skip invalid JSON
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Extract item ID from 1stDibs URL.
+ */
+function extractItemId(url: string): string {
+  const match = url.match(/id-f_(\d+)/);
+  return match ? match[1] : "";
+}
+
+/**
+ * Extract image URL from JSON-LD image field.
+ */
+function extractImageFromJsonLd(
+  image: string | JsonLdImageObject | JsonLdImageObject[] | undefined,
+): string {
+  if (!image) return "";
+  if (typeof image === "string") return image;
+  if (Array.isArray(image)) {
+    return image[0]?.contentUrl ?? "";
+  }
+  return image.contentUrl ?? "";
+}
+
+/**
+ * Extract all image URLs from JSON-LD image field.
+ */
+function extractAllImagesFromJsonLd(
+  image: string | JsonLdImageObject | JsonLdImageObject[] | undefined,
+): string[] {
+  if (!image) return [];
+  if (typeof image === "string") return [image];
+  if (Array.isArray(image)) {
+    return image.map((img) => img.contentUrl).filter(Boolean);
+  }
+  return image.contentUrl ? [image.contentUrl] : [];
+}
+
+/**
+ * Extract item detail from JSON-LD Product data.
+ */
+function extractItemDetail(jsonLdData: JsonLdData[]): JsonLdProduct | null {
+  for (const data of jsonLdData) {
+    if (
+      typeof data === "object" &&
+      data !== null &&
+      "@type" in data &&
+      (data as { "@type": string })["@type"] === "Product"
+    ) {
+      return data as JsonLdProduct;
+    }
+  }
+  return null;
+}
+
+/**
+ * Map JSON-LD Product to UnifiedItem.
+ */
+function mapProductToUnifiedItem(product: JsonLdProduct): UnifiedItem {
+  const itemId = extractItemId(product.url);
+  const images = extractAllImagesFromJsonLd(product.image);
+  const url = product.url.startsWith("http")
+    ? product.url
+    : `${BASE_URL}${product.url}`;
+
+  return {
+    id: `fd-${itemId}`,
+    platformItemId: itemId,
+    platform: PLATFORM,
+    url,
+
+    title: product.name,
+    description: product.description ?? "",
+    images,
+    category: [],
+
+    currentPrice: product.offers?.price ?? 0,
+    currency: product.offers?.priceCurrency ?? "USD",
+
+    auctionType: "buy-now",
+
+    seller: {
+      name: product.brand?.name ?? "Unknown",
+    },
+
+    facets: {
+      categories: [],
+      style: [],
+      period: [],
+      creators: product.brand?.name ? [product.brand.name] : [],
+    },
+  };
+}
+
+// --- HTTP Helpers ---
 
 export type FetchFn = typeof fetch;
 
-async function executeGraphQL<T>(
+async function fetchHtml(
   fetchFn: FetchFn,
-  query: string,
-  variables: Record<string, unknown>,
-  operationName: string,
+  url: string,
   errorContext: string,
-): Promise<T> {
-  const body = buildGraphQLRequest(query, variables, operationName);
-
-  const response = await fetchFn(GRAPHQL_URL, {
-    method: "POST",
-    headers: REQUIRED_HEADERS,
-    body,
+): Promise<string> {
+  const response = await fetchFn(url, {
+    method: "GET",
+    headers: HTML_HEADERS,
   });
 
   if (!response.ok) {
     throw new Error(`${errorContext}: HTTP ${response.status}`);
   }
 
-  const result = (await response.json()) as T & {
-    errors?: Array<{ message: string }>;
-  };
+  return response.text();
+}
 
-  if (result.errors && result.errors.length > 0) {
-    throw new Error(`${errorContext}: ${result.errors[0].message}`);
+async function fetchGraphQL<T>(
+  fetchFn: FetchFn,
+  query: string,
+  variables: Record<string, unknown>,
+  errorContext: string,
+): Promise<T> {
+  const response = await fetchFn(GRAPHQL_URL, {
+    method: "POST",
+    headers: GRAPHQL_HEADERS,
+    body: JSON.stringify({ query, variables }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`${errorContext}: HTTP ${response.status}`);
   }
 
-  return result;
+  const data = (await response.json()) as T & {
+    errors?: Array<{ message: string }>;
+  };
+  if (data.errors && data.errors.length > 0) {
+    throw new Error(`${errorContext}: ${data.errors[0].message}`);
+  }
+
+  return data;
 }
 
 // --- Adapter Class ---
@@ -522,9 +473,9 @@ async function executeGraphQL<T>(
 export interface FirstDibsConfig {
   /** Custom fetch function for testing */
   fetchFn?: FetchFn;
-  /** Rate limiter instance. If not provided, uses default of 4 req/s */
+  /** Rate limiter instance. If not provided, uses default of 2 req/s */
   rateLimiter?: RateLimiter;
-  /** Requests per second (only used if rateLimiter not provided). Default: 4 */
+  /** Requests per second (only used if rateLimiter not provided). Default: 2 */
   requestsPerSecond?: number;
 }
 
@@ -550,35 +501,59 @@ export class FirstDibsAdapter implements PlatformAdapter {
   }
 
   async search(query: SearchQuery): Promise<SearchResult[]> {
-    const variables = buildSearchVariables(query);
+    const uriRef = buildSearchUriRef(query);
+    const pageSize = query.pageSize ?? 24;
 
-    const response = await executeGraphQL<FDSearchResponse>(
+    const response = await fetchGraphQL<GraphQLSearchResponse>(
       this.fetchFn,
       SEARCH_QUERY,
-      variables,
-      "SearchBrowse",
+      { uriRef, first: pageSize },
       "1stDibs search failed",
     );
 
-    const edges = response.data?.searchBrowse?.edges ?? [];
-    return edges.map((edge) => mapSearchNode(edge.node));
+    if (!response.data?.viewer?.itemSearch?.edges) {
+      return [];
+    }
+
+    return response.data.viewer.itemSearch.edges.map((edge) =>
+      mapGraphQLItemToSearchResult(edge.node.item),
+    );
   }
 
   async getItem(itemId: string): Promise<UnifiedItem> {
-    const response = await executeGraphQL<FDItemResponse>(
-      this.fetchFn,
-      ITEM_DETAIL_QUERY,
-      { serviceId: itemId },
-      "ItemDetail",
-      "1stDibs item fetch failed",
-    );
+    // Try GraphQL first
+    const globalId = encodeItemGlobalId(itemId);
 
-    const item = response.data?.item;
-    if (!item) {
+    try {
+      const response = await fetchGraphQL<GraphQLItemResponse>(
+        this.fetchFn,
+        ITEM_DETAIL_QUERY,
+        { id: globalId },
+        "1stDibs item fetch failed",
+      );
+
+      if (response.data?.node) {
+        return mapGraphQLItemDetailToUnifiedItem(response.data.node);
+      }
+    } catch {
+      // Fall through to HTML/JSON-LD fallback
+    }
+
+    // Fallback: try HTML with JSON-LD parsing
+    const directUrl = buildItemUrl(itemId);
+    const html = await fetchHtml(
+      this.fetchFn,
+      directUrl,
+      `1stDibs item not found: ${itemId}`,
+    );
+    const jsonLdData = extractJsonLd(html);
+    const product = extractItemDetail(jsonLdData);
+
+    if (!product) {
       throw new Error(`1stDibs item not found: ${itemId}`);
     }
 
-    return buildUnifiedItem(itemId, item);
+    return mapProductToUnifiedItem(product);
   }
 
   /**
@@ -587,7 +562,6 @@ export class FirstDibsAdapter implements PlatformAdapter {
    * Returns empty array.
    */
   async getPriceHistory(_query: SearchQuery): Promise<SearchResult[]> {
-    // 1stDibs doesn't expose sold item history publicly
     return [];
   }
 }
@@ -596,20 +570,28 @@ export class FirstDibsAdapter implements PlatformAdapter {
 
 export {
   buildSearchUriRef,
-  buildSearchVariables,
-  buildGraphQLRequest,
-  mapSearchNode,
-  buildUnifiedItem,
   buildItemUrl,
-  buildSellerLocation,
-  buildDimensionsString,
-  extractImageUrl,
-  SEARCH_QUERY,
-  ITEM_DETAIL_QUERY,
+  extractJsonLd,
+  extractItemId,
+  extractItemIdFromServiceId,
+  extractImageFromJsonLd,
+  extractAllImagesFromJsonLd,
+  mapGraphQLItemToSearchResult,
+  mapGraphQLItemDetailToUnifiedItem,
+  mapProductToUnifiedItem,
+  extractItemDetail,
+  encodeItemGlobalId,
   PLATFORM,
   DEFAULT_RATE_LIMIT,
-  type FDSearchNode,
-  type FDSearchResponse,
-  type FDItemDetail,
-  type FDItemResponse,
+  GRAPHQL_URL,
+  SEARCH_QUERY,
+  ITEM_DETAIL_QUERY,
+  type GraphQLItem,
+  type GraphQLItemDetail,
+  type GraphQLSearchResponse,
+  type GraphQLItemResponse,
+  type JsonLdProduct,
+  type JsonLdOffer,
+  type JsonLdBrand,
+  type JsonLdImageObject,
 };
